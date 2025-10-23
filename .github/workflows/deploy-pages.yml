@@ -30,13 +30,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Export web build (relative base)
+      - name: Export web build
         env:
           EXPO_NO_TELEMETRY: '1'
         run: |
           npm run export:web
           # SPA fallback for GitHub Pages
           cp dist/index.html dist/404.html
+
+      - name: Inject <base href>
+        env:
+          REPO_NAME: ${{ github.event.repository.name }}
+          BASE_HREF: ${{ vars.BASE_HREF }}
+        run: |
+          # Si BASE_HREF no está definida, usa /<repo>/ (GitHub Pages por subruta)
+          BASE="${BASE_HREF:-/$REPO_NAME/}"
+          echo "Using base href: $BASE"
+          for f in index.html 404.html; do
+            FILE="dist/$f"
+            if grep -q "<base href" "$FILE"; then
+              # Reemplaza la existente
+              sed -i 's|<base href="[^"]*"|<base href="'"$BASE"'"|' "$FILE"
+            else
+              # Inserta al inicio de <head>
+              sed -i 's|<head>|<head><base href="'"$BASE"'" />|' "$FILE"
+            fi
+          done
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

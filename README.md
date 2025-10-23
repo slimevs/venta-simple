@@ -49,11 +49,20 @@ Pasos:
 3) Haz un push a `main` o ejecuta el workflow manualmente (Actions → Deploy Web to GitHub Pages → Run workflow).
 4) La URL de Pages aparece en el job de "Deploy" (algo como `https://<usuario>.github.io/<repo>/`).
 
+Base href configurable:
+- El workflow inserta `<base href>` para que los assets se sirvan correctamente.
+- Puedes controlar el valor con una variable de Actions llamada `BASE_HREF` (Settings → Secrets and variables → Actions → Variables):
+  - Dominio propio (sin subruta): `BASE_HREF=/`
+  - GitHub Pages bajo subruta (por defecto): `BASE_HREF=/<repo>/`
+  - Si no defines `BASE_HREF`, el workflow usa `/<repo>/` automáticamente.
+
 Notas:
 
 - El export web usa `expo export --platform web` y genera en `dist/`.
 - Se copia `index.html` a `404.html` para permitir SPA fallback en Pages.
-- El build usa `--base-url ./` para rutas relativas; esto evita 404 en GitHub Pages bajo `/<repo>/`.
+- El workflow inyecta `<base href="/<repo>/">` en `index.html` y `404.html` para que los assets se resuelvan bajo la subruta de GitHub Pages y evitar 404.
+
+Si cambias el nombre del repositorio o publicas en un dominio personalizado sin subruta, elimina ese paso o ajusta el `href`.
 - Si sirves el sitio bajo `/<repo>/`, Expo web debería funcionar con rutas relativas del export. Si ves rutas rotas, avísame para ajustar el base path del export.
 
 ## Estructura
