@@ -62,6 +62,20 @@ jobs:
             sed -i '/<base href=/! s|src="/|src="'"$BASE"'|g' "$FILE"
           done
 
+      - name: Rewrite absolute asset paths in build
+        env:
+          REPO_NAME: ${{ github.event.repository.name }}
+          BASE_HREF: ${{ vars.BASE_HREF }}
+        run: |
+          BASE="${BASE_HREF:-/$REPO_NAME/}"
+          echo "Rewriting asset paths to use base: $BASE"
+          shopt -s globstar || true
+          for f in dist/**/*.{css,js,html}; do
+            [ -f "$f" ] || continue
+            sed -i -E "s|([\"'])/_expo/|\1${BASE}_expo/|g" "$f"
+            sed -i -E "s|([\"'])/assets/|\1${BASE}assets/|g" "$f"
+          done
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
