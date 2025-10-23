@@ -187,7 +187,7 @@ export function SalesScreen() {
                 <Text style={styles.small}>Depto: {typeof s.department === 'number' ? s.department : '-'}</Text>
                 <Text style={[styles.small, { textTransform: 'capitalize' }]}>Estado: {s.paymentStatus}</Text>
               </View>
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                 <View style={{ flex: 1 }}>
                   <Button title="Marcar Pagado" onPress={() => update(s.id, { paymentStatus: 'pagado' })} />
                 </View>
@@ -196,6 +196,21 @@ export function SalesScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Button title="Parcial" variant="secondary" onPress={() => update(s.id, { paymentStatus: 'parcial' })} />
+                </View>
+                <View style={{ display: 'none' }}>
+                  <Button
+                    title="Pagar y mover"
+                    onPress={() =>
+                      Alert.alert(
+                        'Confirmar pago',
+                        'Esta acción marcará la venta como pagada y la moverá al Histórico en Google Sheets. ¿Deseas continuar?',
+                        [
+                          { text: 'Cancelar', style: 'cancel' },
+                          { text: 'Confirmar', onPress: () => update(s.id, { paymentStatus: 'pagado' }) },
+                        ]
+                      )
+                    }
+                  />
                 </View>
               </View>
             </View>

@@ -3,7 +3,7 @@ import { Sale } from '../models/Sale';
 import { KEYS, getJSON, setJSON } from '../storage';
 import { uuid } from '../utils/uuid';
 import { useProducts } from './ProductsContext';
-import { sendSaleToSheets } from '../services/sheets';
+import { sendSaleToSheets, sendDueSaleToSheets, sendDueClearToSheets } from '../services/sheets';
 
 type SalesCtx = {
   sales: Sale[];
@@ -53,13 +53,31 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
       // Enviar a Google Sheets (no bloqueante)
       (async () => {
         await sendSaleToSheets(newSale, products);
+        if (newSale.paymentStatus !== 'pagado') {
+          await sendDueSaleToSheets(newSale, products);
+        }
       })();
     },
     remove(id) {
       setSales((prev) => prev.filter((s) => s.id !== id));
     },
     update(id, changes) {
-      setSales((prev) => prev.map((s) => (s.id === id ? { ...s, ...changes } : s)));
+      setSales((prev) => {
+        const next = prev.map((s) => (s.id === id ? { ...s, ...changes } : s));
+        const updated = next.find((s) => s.id === id);
+        if (updated) {
+          (async () => {
+            // Sólo registrar en PorCobrar cuando queda pendiente/parcial
+            if (updated.paymentStatus !== 'pagado') {
+              await sendDueSaleToSheets(updated, products);
+            } else {
+              // Si pasa a pagado, limpiar de PorCobrar
+              await sendDueClearToSheets(updated.id);
+            }
+          })();
+        }
+        return next;
+      });
     },
   }), [products, sales, updateProduct]);
 

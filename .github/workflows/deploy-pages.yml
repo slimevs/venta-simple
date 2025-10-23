@@ -35,6 +35,7 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
           EXPO_PUBLIC_SHEETS_SALES_URL: ${{ vars.EXPO_PUBLIC_SHEETS_SALES_URL }}
           EXPO_PUBLIC_SHEETS_PRODUCTS_URL: ${{ vars.EXPO_PUBLIC_SHEETS_PRODUCTS_URL }}
+          EXPO_PUBLIC_SHEETS_DUES_URL: ${{ vars.EXPO_PUBLIC_SHEETS_DUES_URL }}
         run: |
           npm run export:web
           # SPA fallback for GitHub Pages
