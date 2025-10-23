@@ -53,6 +53,7 @@ Notas:
 
 - El export web usa `expo export --platform web` y genera en `dist/`.
 - Se copia `index.html` a `404.html` para permitir SPA fallback en Pages.
+- El build usa `--base-url ./` para rutas relativas; esto evita 404 en GitHub Pages bajo `/<repo>/`.
 - Si sirves el sitio bajo `/<repo>/`, Expo web debería funcionar con rutas relativas del export. Si ves rutas rotas, avísame para ajustar el base path del export.
 
 ## Estructura

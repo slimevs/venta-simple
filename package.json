@@ -9,7 +9,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "export:web": "expo export --platform web --output-dir dist"
+    "export:web": "expo export --platform web --output-dir dist --base-url ./"
   },
   "dependencies": {
     "@expo/metro-runtime": "~3.2.3",
