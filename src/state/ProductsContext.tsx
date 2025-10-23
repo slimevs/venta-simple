@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import { Product } from '../models/Product';
 import { KEYS, getJSON, setJSON } from '../storage';
 import { uuid } from '../utils/uuid';
+import { sendProductChangeToSheets } from '../services/sheets';
 
 type ProductsCtx = {
   products: Product[];
@@ -41,16 +42,35 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
   const api = useMemo<ProductsCtx>(() => ({
     products,
     add(p) {
-      setProducts((prev) => [
-        ...prev,
-        { id: uuid(), name: p.name.trim(), price: p.price, stock: p.stock, unit: p.unit, createdAt: Date.now() },
-      ]);
+      const newItem: Product = { id: uuid(), name: p.name.trim(), price: p.price, stock: p.stock, unit: p.unit, createdAt: Date.now() };
+      setProducts((prev) => [...prev, newItem]);
+      (async () => {
+        await sendProductChangeToSheets({ action: 'create', product: newItem });
+      })();
     },
     update(id, changes) {
-      setProducts((prev) => prev.map((it) => (it.id === id ? { ...it, ...changes, updatedAt: Date.now() } : it)));
+      setProducts((prev) => {
+        const next = prev.map((it) => (it.id === id ? { ...it, ...changes, updatedAt: Date.now() } as Product : it));
+        const updated = next.find((it) => it.id === id);
+        if (updated) {
+          (async () => {
+            await sendProductChangeToSheets({ action: 'update', product: updated });
+          })();
+        }
+        return next;
+      });
     },
     remove(id) {
-      setProducts((prev) => prev.filter((it) => it.id !== id));
+      setProducts((prev) => {
+        const removed = prev.find((it) => it.id === id);
+        const next = prev.filter((it) => it.id !== id);
+        if (removed) {
+          (async () => {
+            await sendProductChangeToSheets({ action: 'delete', product: removed });
+          })();
+        }
+        return next;
+      });
     },
     getById(id) {
       return products.find((p) => p.id === id);
