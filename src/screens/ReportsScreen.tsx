@@ -7,14 +7,17 @@ import { formatCLP } from '../utils/currency';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
+import { fetchSalesFromSheets } from '../services/sheets';
+import { useToast } from '../components/Toast';
 import type { Sale } from '../models/Sale';
 import type { Product } from '../models/Product';
 
 type DayStat = { date: string; total: number };
 
 export function ReportsScreen() {
-  const { sales } = useSales();
+  const { sales, setAll } = useSales();
   const { products } = useProducts();
+  const toast = useToast();
   const [days] = useState(7);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -71,6 +74,26 @@ export function ReportsScreen() {
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
       <Title>Reportes</Title>
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <Button
+          title="Sincronizar ventas"
+          variant="secondary"
+          onPress={async () => {
+            try {
+              const remote = await fetchSalesFromSheets();
+              if (remote && remote.length) {
+                setAll(remote);
+                toast.show('Ventas sincronizadas', { type: 'success' });
+              } else {
+                toast.show('Sin ventas remotas', { type: 'info' });
+              }
+            } catch (e) {
+              toast.show('Error al sincronizar ventas', { type: 'error' });
+            }
+          }}
+        />
+      </View>
+
       <View style={[styles.card, { marginBottom: 12 }]}>
         <Text style={{ fontWeight: '700', marginBottom: 8 }}>Filtro por fechas</Text>
         <Field label="Desde (YYYY-MM-DD)" value={startDate} onChangeText={setStartDate} placeholder="2025-01-01" />
@@ -87,6 +110,7 @@ export function ReportsScreen() {
           </View>
         </View>
       </View>
+
       <View style={[styles.card, { marginBottom: 12 }]}>
         <Text>Ingresos totales: {formatCLP(summary.revenue)}</Text>
         <Text>Cantidad total (u/kg): {summary.units}</Text>
@@ -225,7 +249,7 @@ export function ReportsScreen() {
               <Text>{item.qty}</Text>
             </View>
           )}
-          ListEmptyComponent={<Text style={styles.small}>Sin ventas aúnºn</Text>}
+          ListEmptyComponent={<Text style={styles.small}>Sin ventas aÃºn</Text>}
         />
       </View>
     </ScrollView>
@@ -333,3 +357,4 @@ function buildReportHTML(sales: Sale[], products: Product[], start: string, end:
   </body></html>`;
   return html;
 }
+

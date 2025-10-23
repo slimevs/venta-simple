@@ -1,40 +1,36 @@
-# Integración con Google Sheets (Ventas, Productos y Por Cobrar)
+# Integración con Google Sheets (Ventas, Productos, PorCobrar e Histórico)
 
-Esta guía explica cómo enviar automáticamente ventas, cambios de productos y ventas por cobrar (pendientes/parciales) a Google Sheets usando un Google Apps Script publicado como Web App.
+Esta guía describe cómo conectar la app con Google Sheets para escribir y leer datos de Productos y Ventas, incluyendo ventas por cobrar (pendientes/parciales) y un histórico al momento de pago.
 
 ---
 
 ## 1) Preparar la Hoja de Cálculo
 
-Crea una Hoja en Google Drive con estas pestañas y encabezados:
+Crea una Hoja en Google Drive con estas pestañas y columnas (fila 1: encabezados):
 
-- Ventas (pestaña: `Ventas`)
-  - Encabezados (fila 1, en este orden):
-    - fecha, departamento, estado_pago, producto, unidad, cantidad, precio, subtotal, total_venta
+- Ventas (`Ventas`)
+  - venta_id, fecha, departamento, estado_pago, producto, unidad, cantidad, precio, subtotal, total_venta, product_id
 
-- Productos (pestaña: `Productos`)
-  - Encabezados (fila 1, en este orden):
-    - fecha, accion, id, nombre, unidad, precio, stock, creado_en, actualizado_en
+- Por cobrar (`PorCobrar`)
+  - venta_id, fecha, departamento, estado_pago, producto, unidad, cantidad, precio, subtotal, total_venta
 
-- Por cobrar (pendiente/parcial) (pestaña: `PorCobrar`)
-  - Encabezados (fila 1, en este orden):
-    - venta_id, fecha, departamento, estado_pago, producto, unidad, cantidad, precio, subtotal, total_venta
+- Histórico (`Historico`)
+  - venta_id, pagado_en, fecha, departamento, estado_pago, producto, unidad, cantidad, precio, subtotal, total_venta
 
-- Histórico (pagos conciliados) (pestaña: `Historico`)
-  - Encabezados (fila 1, en este orden):
-    - venta_id, pagado_en, fecha, departamento, estado_pago, producto, unidad, cantidad, precio, subtotal, total_venta
+- Productos (`Productos`)
+  - fecha, accion, id, nombre, unidad, precio, stock, creado_en, actualizado_en
 
-Notas:
+Notas rápidas
 - accion: create | update | delete
 - unidad: unit | kg
-- fechas: ISO (ej. 2025-10-23T12:34:56.000Z)
-- números: usa punto decimal si aplicara (cantidad/precio/subtotal/total)
+- Fechas: ISO (ej. 2025-10-23T12:34:56.000Z) o timestamp numérico si prefieres guardar milisegundos
+- Números: usa punto decimal
 
 ---
 
-## 2) Crear el Apps Script (Web App)
+## 2) Apps Script (Web App)
 
-1) En la Hoja, ve a Extensiones → Apps Script. Crea un nuevo proyecto y pega este código unificado:
+En la hoja: Extensiones → Apps Script. Crea un proyecto y pega este código unificado (escritura + lectura + CORS):
 
 ```
 function doPost(e) {
@@ -49,7 +45,7 @@ function doPost(e) {
       return appendVentas_(data);
     }
 
-    // Mover de PorCobrar a Historico cuando la venta pase a pagado
+    // Ventas por cobrar -> mover a histórico
     if (data && data.dueClear === true && data.id) {
       return movePorCobrarToHistorico_(data.id);
     }
@@ -65,15 +61,37 @@ function doPost(e) {
   }
 }
 
+function doGet(e) {
+  try {
+    var t = (e && e.parameter && e.parameter.type) || '';
+    if (t === 'sales') return readVentasAgrupadas_();
+    if (t === 'products') return readProductosCambios_();
+    return json_({ ok: true });
+  } catch (err) {
+    return json_({ ok: false, error: String(err) }, 500);
+  }
+}
+
+// ========== Escritura ==========
+
 function appendVentas_(data) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName('Ventas') || ss.insertSheet('Ventas');
+  // Encabezados: venta_id | fecha | departamento | estado_pago | producto | unidad | cantidad | precio | subtotal | total_venta | product_id
   var rows = [];
   (data.items || []).forEach(function(it) {
     rows.push([
-      data.date, data.department || '', data.paymentStatus || '',
-      it.name || '', it.unit || '', it.quantity || 0, it.price || 0, it.subtotal || 0,
+      data.id || '',
+      data.date,
+      data.department || '',
+      data.paymentStatus || '',
+      it.name || '',
+      it.unit || '',
+      it.quantity || 0,
+      it.price || 0,
+      it.subtotal || 0,
       data.total || 0,
+      it.productId || ''
     ]);
   });
   if (rows.length) sh.getRange(sh.getLastRow()+1, 1, rows.length, rows[0].length).setValues(rows);
@@ -103,13 +121,13 @@ function movePorCobrarToHistorico_(id) {
   if (!id) return json_({ ok: false, error: 'id requerido' }, 400);
   var last = shDue.getLastRow();
   if (last < 2) return json_({ ok: true, moved: 0 });
-  var rng = shDue.getRange(2, 1, last - 1, 10); // columnas A:J en PorCobrar
+  var rng = shDue.getRange(2, 1, last - 1, 10); // columnas A:J
   var vals = rng.getValues();
   var moved = 0;
   for (var i = vals.length - 1; i >= 0; i--) {
     if (String(vals[i][0]) === String(id)) {
       var row = vals[i];
-      // Construir fila para Historico: venta_id, pagado_en(now), luego columnas existentes
+      // Historico: venta_id, pagado_en(now), luego columnas existentes
       var out = [row[0], new Date().toISOString()].concat(row.slice(1));
       shHist.appendRow(out);
       shDue.deleteRow(i + 2);
@@ -131,101 +149,144 @@ function appendProducto_(data) {
   return json_({ ok: true });
 }
 
+// ========== Lectura ==========
+
+function readVentasAgrupadas_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('Ventas');
+  if (!sh) return json_({ items: [] });
+  var last = sh.getLastRow();
+  if (last < 2) return json_({ items: [] });
+
+  var data = sh.getRange(2, 1, last - 1, 11).getValues();
+  var COL = { venta_id: 0, fecha: 1, departamento: 2, estado_pago: 3, producto: 4, unidad: 5, cantidad: 6, precio: 7, subtotal: 8, total_venta: 9, product_id: 10 };
+  var map = {};
+  data.forEach(function(r){
+    var id = String(r[COL.venta_id] || '');
+    if (!id) return;
+    if (!map[id]) {
+      map[id] = {
+        id: id,
+        date: r[COL.fecha] || new Date().toISOString(),
+        department: r[COL.departamento] || 0,
+        paymentStatus: String(r[COL.estado_pago] || 'pagado'),
+        total: Number(r[COL.total_venta] || 0),
+        items: []
+      };
+    }
+    map[id].items.push({
+      productId: String(r[COL.product_id] || ''),
+      quantity: Number(r[COL.cantidad] || 0),
+      price: Number(r[COL.precio] || 0),
+      subtotal: Number(r[COL.subtotal] || 0),
+      name: String(r[COL.producto] || ''),
+      unit: String(r[COL.unidad] || '')
+    });
+  });
+  var items = Object.keys(map).map(function(k){ return map[k]; });
+  return json_({ items: items });
+}
+
+function readProductosCambios_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('Productos');
+  if (!sh) return json_({ items: [] });
+  var last = sh.getLastRow();
+  if (last < 2) return json_({ items: [] });
+  var data = sh.getRange(2, 1, last - 1, 9).getValues();
+  var items = data.map(function(r){
+    return {
+      date: r[0], action: String(r[1] || '').toLowerCase(),
+      id: String(r[2] || ''), name: String(r[3] || ''), unit: r[4] || 'unit',
+      price: Number(r[5] || 0), stock: Number(r[6] || 0),
+      createdAt: r[7] ? Number(r[7]) : null,
+      updatedAt: r[8] ? Number(r[8]) : null
+    };
+  });
+  return json_({ items: items });
+}
+
+// ========== Utilidad ==========
+
 function json_(obj, status) {
-  var out = ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader('Access-Control-Allow-Origin', '*');
-  if (status) out.setHeader('Status', String(status));
-  return out;
+  // Nota: TextOutput no soporta setHeader en Apps Script.
+  // Para Web Apps publicados, Google gestiona los headers; devolver JSON es suficiente.
+  // Si tu entorno requiere CORS explícito, usa un proxy o backend propio.
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 ```
-
-2) Guarda el proyecto.
-
-3) Despliega como Web App: Implementar → Implementar como aplicación web.
-- Ejecutar la app como: Tu usuario.
-- Acceso: Cualquiera con el enlace.
-- Copia la URL: la usarás en la app.
-
-Puedes usar la misma URL para ventas, productos y por cobrar, o crear proyectos separados. La app soporta ambas opciones (una o varias URLs).
 
 ---
 
 ## 3) Configurar variables en la app
 
-La app lee URLs públicas (sin secretos) desde variables `EXPO_PUBLIC_*` y envía POST JSON (sin CORS estricto).
+Variables EXPO públicas (se embeben en el bundle; no pongas secretos aquí):
 
-- Ventas: `EXPO_PUBLIC_SHEETS_SALES_URL`
-- Productos: `EXPO_PUBLIC_SHEETS_PRODUCTS_URL`
-- Por cobrar (pendiente/parcial): `EXPO_PUBLIC_SHEETS_DUES_URL` (opcional; si no se define, se usa la de Ventas indicando `due: true`)
+- Escritura (POST)
+  - EXPO_PUBLIC_SHEETS_SALES_URL
+  - EXPO_PUBLIC_SHEETS_PRODUCTS_URL
+  - EXPO_PUBLIC_SHEETS_DUES_URL (opcional; si no se define, la app usa la de ventas con `due: true`)
 
-Cómo definirlas:
-- Local (macOS/Linux):
-  - `export EXPO_PUBLIC_SHEETS_SALES_URL="<URL>"; export EXPO_PUBLIC_SHEETS_PRODUCTS_URL="<URL>"; export EXPO_PUBLIC_SHEETS_DUES_URL="<URL>"; npm run start`
-- Local (Windows PowerShell):
-  - `$Env:EXPO_PUBLIC_SHEETS_SALES_URL="<URL>"; $Env:EXPO_PUBLIC_SHEETS_PRODUCTS_URL="<URL>"; $Env:EXPO_PUBLIC_SHEETS_DUES_URL="<URL>"; npm run start`
-- GitHub Pages (Actions Variables):
-  - GitHub → Settings → Secrets and variables → Actions → Variables → crea las variables anteriores.
+- Lectura (GET)
+  - EXPO_PUBLIC_SHEETS_PRODUCTS_GET_URL (ej. `.../exec?type=products`)
+  - EXPO_PUBLIC_SHEETS_SALES_GET_URL (ej. `.../exec?type=sales`)
 
-En el código:
-- Config: `src/config.ts`
-- Servicio: `src/services/sheets.ts`
-  - Ventas: `sendSaleToSheets(sale, products)`
-  - Productos: `sendProductChangeToSheets({ action, product })`
-  - Por cobrar: `sendDueSaleToSheets(sale, products)`
-- Invocación:
-  - Ventas: `src/state/SalesContext.tsx` dentro de `add` (y registra por cobrar si corresponde)
-  - Productos: `src/state/ProductsContext.tsx` en `add`/`update`/`remove`
-  - Por cobrar: `src/state/SalesContext.tsx` en `add` y `update` cuando `paymentStatus` es `pendiente` o `parcial`
+Definirlas
+- Local macOS/Linux: exporta variables y corre `npm run start`
+- Local Windows (PowerShell): `$Env:NOMBRE_VAR="valor"; npm run start`
+- GitHub Pages (Actions → Variables): crea las variables anteriores y redeploya
 
 ---
 
-## 4) Prueba rápida
+## 4) Flujo en la App
 
-- Crear/editar/borrar un producto → verifica filas en `Productos`.
-- Registrar venta con pago “pagado” → filas en `Ventas`.
-- Registrar venta “pendiente” o “parcial” → filas en `PorCobrar` (si tienes `EXPO_PUBLIC_SHEETS_DUES_URL` o si tu Apps Script redirige por `data.due`).
-- Revisa la consola del navegador por avisos `[sheets]` si algo falla.
+- Escritura (POST)
+  - La app envía con `mode: 'no-cors'` y sin headers personalizados (evita preflight). No lee la respuesta en web.
+  - Ventas:
+    - Pagadas → `Ventas`
+    - Pendiente/Parcial → `PorCobrar`
+    - Cambio a pagado → envía `dueClear` para mover de `PorCobrar` a `Historico`
+  - Productos: create/update/delete → `Productos`
 
-Ejemplo de payload (venta por cobrar):
-```
-{
-  "due": true,
-  "date": "2025-10-23T12:00:00.000Z",
-  "department": 10,
-  "paymentStatus": "pendiente",
-  "total": 12050,
-  "items": [
-    { "productId": "p1", "name": "Manzana", "unit": "kg", "quantity": 2.5, "price": 2000, "subtotal": 5000 },
-    { "productId": "p2", "name": "Botella", "unit": "unit", "quantity": 2, "price": 3525, "subtotal": 7050 }
-  ]
-}
-```
+- Lectura (GET)
+  - Productos al iniciar (si hay URL): lee cambios y reconstruye el estado actual.
+  - Ventas al iniciar (si hay URL): lee ventas agrupadas con sus items.
+  - Botones de sincronización manual:
+    - Productos: “Sincronizar ahora” (en la pestaña Productos)
+    - Ventas: “Sincronizar ventas” (en Reportes)
 
 ---
 
-## 5) Solución de problemas
+## 5) Prueba rápida
 
-- 403/401 Web App: revisa que el despliegue sea “Cualquiera con el enlace”.
-- 404 o CORS:
-  - El cliente envía `mode: 'no-cors'` y sin headers personalizados para evitar preflight; no se lee la respuesta.
-  - Asegúrate de que la URL sea correcta.
-- Filas duplicadas: no dispares manualmente los envíos; la app ya envía tras guardar.
-- Zona horaria: las fechas se envían en ISO UTC. Ajusta formato en Sheets según tu zona.
+1) Guarda productos y ventas desde la app; verifica filas en las pestañas correspondientes.
+2) Abre en el navegador los endpoints GET:
+   - `...?type=products` y `...?type=sales` deben devolver JSON y CORS.
+3) Define las variables GET en la app; recarga la versión web y verifica que se cargan datos remotos al iniciar o al presionar “Sincronizar”.
 
 ---
 
-## 6) Seguridad y buenas prácticas
+## 6) Solución de problemas
 
-- Variables `EXPO_PUBLIC_*` no son secretas; se incorporan al bundle.
-- Para seguridad real, usa un backend (Cloud Functions/Run) con auth y acceso a Sheets con cuenta de servicio.
-- Para robustez offline (reintentos): implementa una cola local y un botón “Reintentar envíos pendientes”.
+- 403/401: Publica el Web App como “Cualquiera con el enlace”.
+- CORS en GET: usa `json_` con `Access-Control-Allow-Origin: '*'` (incluido arriba).
+- CSV/PDF: la app exporta CSV/PDF localmente; no afecta Sheets.
+- Duplicados: la app evita enviar dos veces la misma transición (ej. de pendiente→pagado se registra en Ventas y se limpia PorCobrar).
 
 ---
 
-## 7) Referencias
+## 7) Seguridad
+
+- `EXPO_PUBLIC_*` no son secretos; se embeben en el bundle web.
+- Para seguridad real, usa un backend propio (Cloud Functions/Run) con autenticación y acceso a Sheets con cuenta de servicio, y cambia la app para hablar con tu backend.
+
+---
+
+## 8) Referencias en el código
 
 - Config: `src/config.ts`
-- Servicio: `src/services/sheets.ts`
-- Estado Ventas: `src/state/SalesContext.tsx`
+- Servicios Sheets: `src/services/sheets.ts`
 - Estado Productos: `src/state/ProductsContext.tsx`
+- Estado Ventas: `src/state/SalesContext.tsx`
+- UI sincronización: `src/screens/ProductsScreen.tsx`, `src/screens/ReportsScreen.tsx`
