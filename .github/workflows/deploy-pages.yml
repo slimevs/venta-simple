@@ -55,6 +55,9 @@ jobs:
               # Inserta al inicio de <head>
               sed -i 's|<head>|<head><base href="'"$BASE"'" />|' "$FILE"
             fi
+            # Reescribe referencias absolutas (src="/..." y href="/...") fuera de la etiqueta <base>
+            sed -i '/<base href=/! s|href="/|href="'"$BASE"'|g' "$FILE"
+            sed -i '/<base href=/! s|src="/|src="'"$BASE"'|g' "$FILE"
           done
 
       - name: Upload Pages artifact
