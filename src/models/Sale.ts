@@ -9,7 +9,7 @@ export interface Sale {
   id: string;
   items: SaleItem[];
   total: number;
-  department: string; // departamento o área
+  department: number; // departamento numérico
   paymentStatus: 'pagado' | 'pendiente' | 'parcial';
   createdAt: number;
 }

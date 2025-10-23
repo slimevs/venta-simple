@@ -1,8 +1,9 @@
-import { SHEETS_SALES_URL, SHEETS_PRODUCTS_URL } from '../config';
+import { SHEETS_SALES_URL, SHEETS_PRODUCTS_URL, SHEETS_DUES_URL } from '../config';
 import type { Sale } from '../models/Sale';
 import type { Product } from '../models/Product';
 
 type SendSalePayload = {
+  id: string;
   date: string;
   department: string;
   paymentStatus: string;
@@ -20,6 +21,7 @@ type SendSalePayload = {
 export async function sendSaleToSheets(sale: Sale, products: Product[]): Promise<void> {
   if (!SHEETS_SALES_URL) return; // no configurado, no envía
   const payload: SendSalePayload = {
+    id: sale.id,
     date: new Date(sale.createdAt).toISOString(),
     department: sale.department || '',
     paymentStatus: sale.paymentStatus,
@@ -77,5 +79,44 @@ export async function sendProductChangeToSheets(change: ProductChange): Promise<
     });
   } catch (err) {
     console.warn('[sheets] Falló envío de producto a Google Sheets:', err);
+  }
+}
+
+export async function sendDueSaleToSheets(sale: Sale, products: Product[]): Promise<void> {
+  const url = SHEETS_DUES_URL || SHEETS_SALES_URL; // si no hay URL específica, usa la de ventas
+  if (!url) return;
+  const payload = {
+    due: true,
+    id: sale.id,
+    date: new Date(sale.createdAt).toISOString(),
+    department: sale.department || '',
+    paymentStatus: sale.paymentStatus,
+    total: sale.total,
+    items: sale.items.map((it) => {
+      const p = products.find((x) => x.id === it.productId);
+      return {
+        productId: it.productId,
+        name: p?.name ?? 'Desconocido',
+        unit: p?.unit ?? '',
+        quantity: it.quantity,
+        price: it.price,
+        subtotal: it.subtotal,
+      };
+    }),
+  } as any;
+  try {
+    await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+  } catch (err) {
+    console.warn('[sheets] Falló envío de venta por cobrar a Google Sheets:', err);
+  }
+}
+
+export async function sendDueClearToSheets(saleId: string): Promise<void> {
+  const url = SHEETS_DUES_URL || SHEETS_SALES_URL;
+  if (!url) return;
+  try {
+    await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ dueClear: true, id: saleId }) });
+  } catch (err) {
+    console.warn('[sheets] Falló limpiar PorCobrar en Google Sheets:', err);
   }
 }

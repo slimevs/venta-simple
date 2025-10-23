@@ -3,6 +3,7 @@ import { Alert, FlatList, Text, View, Platform } from 'react-native';
 import { useSales } from '../state/SalesContext';
 import { useProducts } from '../state/ProductsContext';
 import { Button, Title, styles, Field } from '../components/Common';
+import { formatCLP } from '../utils/currency';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
@@ -84,7 +85,7 @@ export function ReportsScreen() {
         </View>
       </View>
       <View style={[styles.card, { marginBottom: 12 }]}>
-        <Text>Ingresos totales: ${summary.revenue.toFixed(2)}</Text>
+        <Text>Ingresos totales: {formatCLP(summary.revenue)}</Text>
         <Text>Cantidad total (u/kg): {summary.units}</Text>
         <View style={{ marginTop: 8 }}>
           <Button title="Exportar CSV" onPress={async () => {
@@ -154,7 +155,7 @@ export function ReportsScreen() {
               <View style={{ flex: 1, height: 10, backgroundColor: '#e5e7eb', borderRadius: 6, overflow: 'hidden' }}>
                 <View style={{ width: `${(d.total / summary.max) * 100}%`, height: '100%', backgroundColor: '#60a5fa' }} />
               </View>
-              <Text style={[styles.small, { marginLeft: 8 }]}>${d.total.toFixed(0)}</Text>
+              <Text style={[styles.small, { marginLeft: 8 }]}>{formatCLP(d.total)}</Text>
             </View>
           ))}
         </View>
@@ -189,7 +190,7 @@ function buildCSV(sales: Sale[], products: Product[]): string {
       const subtotal = it.subtotal;
       const cols = [
         date,
-        s.department ?? '',
+        typeof s.department === 'number' ? s.department : '',
         s.paymentStatus ?? '',
         name,
         p?.unit ?? '',
@@ -249,14 +250,14 @@ function buildReportHTML(sales: Sale[], products: Product[], start: string, end:
       const p = products.find((x) => x.id === it.productId);
       rows.push(`<tr>
         <td>${date}</td>
-        <td>${s.department || ''}</td>
+        <td>${typeof s.department === 'number' ? s.department : ''}</td>
         <td>${s.paymentStatus || ''}</td>
         <td>${p?.name ?? 'Desconocido'}</td>
         <td>${p?.unit ?? ''}</td>
         <td>${it.quantity}</td>
-        <td>${it.price}</td>
-        <td>${it.subtotal}</td>
-        <td>${s.total}</td>
+        <td>${formatCLP(it.price)}</td>
+        <td>${formatCLP(it.subtotal)}</td>
+        <td>${formatCLP(s.total)}</td>
       </tr>`);
     }
   }
@@ -273,7 +274,7 @@ function buildReportHTML(sales: Sale[], products: Product[], start: string, end:
         ${rows.join('')}
       </tbody>
       <tfoot>
-        <tr><td colspan="8">Total</td><td>${total.toFixed(2)}</td></tr>
+        <tr><td colspan="8">Total</td><td>${formatCLP(total)}</td></tr>
       </tfoot>
     </table>
   </body></html>`;

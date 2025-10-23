@@ -5,6 +5,7 @@ import { useSales } from '../state/SalesContext';
 import { Button, Field, Title, styles } from '../components/Common';
 import { SaleItem } from '../models/Sale';
 import { useNavigation } from '@react-navigation/native';
+import { formatCLP } from '../utils/currency';
 
 export function SalesScreen() {
   const { products } = useProducts();
@@ -63,7 +64,8 @@ export function SalesScreen() {
     setError(null);
     try {
       if (items.length === 0) return;
-      add({ items, total, department: department.trim(), paymentStatus });
+      const dep = parseInt((department || '').trim(), 10) || 0;
+      add({ items, total, department: dep, paymentStatus });
       setItems([]);
       setSelectedId(null);
       setQuantity('');
@@ -93,7 +95,7 @@ export function SalesScreen() {
               keyExtractor={(i) => i.id}
               renderItem={({ item }) => (
                 <Pressable onPress={() => { setSelectedId(item.id); setDropdown(false); }} style={{ padding: 10 }}>
-                  <Text>{item.name} • ${item.price.toFixed(2)} • Stock: {item.stock}</Text>
+                  <Text>{item.name} • {formatCLP(item.price)} • Stock: {item.stock}</Text>
                 </Pressable>
               )}
               ListEmptyComponent={<Text style={{ padding: 8, color: '#6b7280' }}>Sin productos</Text>}
@@ -101,7 +103,13 @@ export function SalesScreen() {
           </View>
         )}
         <Field label="Cantidad" value={quantity} onChangeText={setQuantity} placeholder="Ej. 2" keyboardType="numeric" />
-        <Field label="Departamento" value={department} onChangeText={setDepartment} placeholder="Ej. Almacén A" />
+        <Field
+          label="Departamento (numérico)"
+          value={department}
+          onChangeText={(t) => setDepartment(t.replace(/[^0-9]/g, ''))}
+          placeholder="Ej. 10"
+          keyboardType="numeric"
+        />
         <Text style={[styles.label, { marginTop: 6 }]}>Estado de pago</Text>
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
           {[
@@ -147,7 +155,7 @@ export function SalesScreen() {
               <View style={[styles.row, { marginBottom: 8 }]}>
                 <Text>{p?.name} x {item.quantity}{p?.unit === 'kg' ? ' kg' : ''}</Text>
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                  <Text>${item.subtotal.toFixed(2)}</Text>
+                  <Text>{formatCLP(item.subtotal)}</Text>
                   <Button title="Quitar" variant="danger" onPress={() => removeItem(item.productId)} />
                 </View>
               </View>
@@ -158,7 +166,7 @@ export function SalesScreen() {
 
         <View style={[styles.row, { marginTop: 8 }]}>
           <Text style={{ fontWeight: '700' }}>Total</Text>
-          <Text style={{ fontWeight: '700' }}>${total.toFixed(2)}</Text>
+          <Text style={{ fontWeight: '700' }}>{formatCLP(total)}</Text>
         </View>
       </View>
 
@@ -176,10 +184,10 @@ export function SalesScreen() {
                 <Text style={styles.small}>Total: ${s.total.toFixed(2)}</Text>
               </View>
               <View style={styles.row}>
-                <Text style={styles.small}>Depto: {s.department || '-'}</Text>
+                <Text style={styles.small}>Depto: {typeof s.department === 'number' ? s.department : '-'}</Text>
                 <Text style={[styles.small, { textTransform: 'capitalize' }]}>Estado: {s.paymentStatus}</Text>
               </View>
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                 <View style={{ flex: 1 }}>
                   <Button title="Marcar Pagado" onPress={() => update(s.id, { paymentStatus: 'pagado' })} />
                 </View>
@@ -188,6 +196,21 @@ export function SalesScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Button title="Parcial" variant="secondary" onPress={() => update(s.id, { paymentStatus: 'parcial' })} />
+                </View>
+                <View style={{ display: 'none' }}>
+                  <Button
+                    title="Pagar y mover"
+                    onPress={() =>
+                      Alert.alert(
+                        'Confirmar pago',
+                        'Esta acción marcará la venta como pagada y la moverá al Histórico en Google Sheets. ¿Deseas continuar?',
+                        [
+                          { text: 'Cancelar', style: 'cancel' },
+                          { text: 'Confirmar', onPress: () => update(s.id, { paymentStatus: 'pagado' }) },
+                        ]
+                      )
+                    }
+                  />
                 </View>
               </View>
             </View>
