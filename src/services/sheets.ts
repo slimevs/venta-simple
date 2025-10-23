@@ -5,7 +5,7 @@ import type { Product } from '../models/Product';
 type SendSalePayload = {
   id: string;
   date: string;
-  department: string;
+  department: number | string;
   paymentStatus: string;
   total: number;
   items: Array<{
