@@ -37,6 +37,24 @@ Implementación sin librerías de navegación para facilitar ejecución inicial.
    - iOS: `npm run ios`
    - Web: `npm run web`
 
+## Despliegue en GitHub Pages (Web)
+
+Con el workflow incluido (`.github/workflows/deploy-pages.yml`), cada push a `main` construye la app web y la publica en GitHub Pages.
+
+Pasos:
+
+1) Crea el repo en GitHub y sube el código (`main` por defecto).
+2) En GitHub, ve a Settings → Pages y elige:
+   - Source: "GitHub Actions".
+3) Haz un push a `main` o ejecuta el workflow manualmente (Actions → Deploy Web to GitHub Pages → Run workflow).
+4) La URL de Pages aparece en el job de "Deploy" (algo como `https://<usuario>.github.io/<repo>/`).
+
+Notas:
+
+- El export web usa `expo export --platform web` y genera en `dist/`.
+- Se copia `index.html` a `404.html` para permitir SPA fallback en Pages.
+- Si sirves el sitio bajo `/<repo>/`, Expo web debería funcionar con rutas relativas del export. Si ves rutas rotas, avísame para ajustar el base path del export.
+
 ## Estructura
 
 - `App.tsx`: Configura React Navigation con tabs (Ventas, Productos, Reportes).
