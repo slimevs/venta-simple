@@ -1,0 +1,37 @@
+# Normalize line endings
+* text=auto
+
+# Enforce LF for source files commonly used across platforms
+*.js  eol=lf
+*.ts  eol=lf
+*.tsx eol=lf
+*.jsx eol=lf
+*.json eol=lf
+*.yml eol=lf
+*.yaml eol=lf
+*.md  eol=lf
+*.sh  eol=lf
+*.gradle eol=lf
+*.podspec eol=lf
+
+# Keep CRLF for Windows scripts
+*.bat eol=crlf
+*.cmd eol=crlf
+*.ps1 eol=crlf
+
+# Treat common binaries correctly
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.pdf binary
+*.ttf binary
+*.otf binary
+*.zip binary
+
+# Optional linguist hints (don’t count vendored build output)
+web-build/* linguist-vendored
+dist/*      linguist-vendored
+build/*     linguist-vendored
+
