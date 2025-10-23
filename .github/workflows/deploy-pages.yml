@@ -30,6 +30,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate Sheets GET/POST URLs
+        env:
+          SALES_URL: ${{ vars.EXPO_PUBLIC_SHEETS_SALES_URL }}
+          PRODUCTS_URL: ${{ vars.EXPO_PUBLIC_SHEETS_PRODUCTS_URL }}
+          DUES_URL: ${{ vars.EXPO_PUBLIC_SHEETS_DUES_URL }}
+          PRODUCTS_GET_URL: ${{ vars.EXPO_PUBLIC_SHEETS_PRODUCTS_GET_URL }}
+          SALES_GET_URL: ${{ vars.EXPO_PUBLIC_SHEETS_SALES_GET_URL }}
+        run: |
+          echo "Checking required variables for web sync..."
+          missing=0
+          for v in PRODUCTS_GET_URL SALES_GET_URL; do
+            if [ -z "${!v}" ]; then
+              echo "::warning::Variable $v is not set. Web sync from Sheets will be disabled."
+              missing=$((missing+1))
+            fi
+          done
+          # POST URLs are optional for web-only read; warn if missing
+          for v in SALES_URL PRODUCTS_URL; do
+            if [ -z "${!v}" ]; then
+              echo "::notice::Variable $v is not set (POST). Writes to Sheets may not work from the deployed site."
+            fi
+          done
+          exit 0
+
       - name: Export web build
         env:
           EXPO_NO_TELEMETRY: '1'
