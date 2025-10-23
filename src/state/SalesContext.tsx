@@ -52,8 +52,9 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
       setSales((prev) => [...prev, newSale]);
       // Enviar a Google Sheets (no bloqueante)
       (async () => {
-        await sendSaleToSheets(newSale, products);
-        if (newSale.paymentStatus !== 'pagado') {
+        if (newSale.paymentStatus === 'pagado') {
+          await sendSaleToSheets(newSale, products);
+        } else {
           await sendDueSaleToSheets(newSale, products);
         }
       })();
@@ -71,7 +72,8 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
             if (updated.paymentStatus !== 'pagado') {
               await sendDueSaleToSheets(updated, products);
             } else {
-              // Si pasa a pagado, limpiar de PorCobrar
+              // Si pasa a pagado, agregar a Ventas y limpiar de PorCobrar
+              await sendSaleToSheets(updated, products);
               await sendDueClearToSheets(updated.id);
             }
           })();
