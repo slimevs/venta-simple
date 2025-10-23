@@ -6,9 +6,10 @@ import { FloatingScrollTop } from '../components/FloatingScrollTop';
 import { formatCLP } from '../utils/currency';
 import { Product } from '../models/Product';
 import { useToast } from '../components/Toast';
+import { fetchProductChangesFromSheets, reduceProductChanges } from '../services/sheets';
 
 export function ProductsScreen() {
-  const { products, add, update, remove } = useProducts();
+  const { products, add, update, remove, setAll } = useProducts();
   const toast = useToast();
   const scrollRef = useRef<ScrollView>(null);
   const [showTop, setShowTop] = useState(false);
@@ -72,6 +73,26 @@ export function ProductsScreen() {
         keyboardShouldPersistTaps="handled"
       >
       <Title>Productos</Title>
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <Button
+          title="Sincronizar ahora"
+          variant="secondary"
+          onPress={async () => {
+            try {
+              const changes = await fetchProductChangesFromSheets();
+              if (changes && changes.length) {
+                const next = reduceProductChanges(changes);
+                setAll(next);
+                toast.show('Productos sincronizados', { type: 'success' });
+              } else {
+                toast.show('Sin cambios de productos', { type: 'info' });
+              }
+            } catch (e) {
+              toast.show('Error al sincronizar', { type: 'error' });
+            }
+          }}
+        />
+      </View>
 
       <View style={[styles.card, { marginBottom: 16 }] }>
         <Text style={{ fontWeight: '700', marginBottom: 8 }}>{editingId ? 'Editar producto' : 'Nuevo producto'}</Text>

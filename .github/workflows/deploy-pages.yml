@@ -36,6 +36,8 @@ jobs:
           EXPO_PUBLIC_SHEETS_SALES_URL: ${{ vars.EXPO_PUBLIC_SHEETS_SALES_URL }}
           EXPO_PUBLIC_SHEETS_PRODUCTS_URL: ${{ vars.EXPO_PUBLIC_SHEETS_PRODUCTS_URL }}
           EXPO_PUBLIC_SHEETS_DUES_URL: ${{ vars.EXPO_PUBLIC_SHEETS_DUES_URL }}
+          EXPO_PUBLIC_SHEETS_PRODUCTS_GET_URL: ${{ vars.EXPO_PUBLIC_SHEETS_PRODUCTS_GET_URL }}
+          EXPO_PUBLIC_SHEETS_SALES_GET_URL: ${{ vars.EXPO_PUBLIC_SHEETS_SALES_GET_URL }}
         run: |
           npm run export:web
           # SPA fallback for GitHub Pages

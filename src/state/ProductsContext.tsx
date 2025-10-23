@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import { Product } from '../models/Product';
 import { KEYS, getJSON, setJSON } from '../storage';
 import { uuid } from '../utils/uuid';
+import { fetchProductChangesFromSheets, reduceProductChanges } from '../services/sheets';
 import { sendProductChangeToSheets } from '../services/sheets';
 
 type ProductsCtx = {
@@ -32,6 +33,12 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
         updatedAt: it.updatedAt ? Number(it.updatedAt) : undefined,
       }));
       setProducts(migrated);
+      // Intentar sincronizar desde Sheets si hay endpoint de lectura configurado
+      const changes = await fetchProductChangesFromSheets();
+      if (changes && changes.length) {
+        const next = reduceProductChanges(changes);
+        setProducts(next);
+      }
     })();
   }, []);
 

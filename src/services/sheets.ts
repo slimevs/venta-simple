@@ -1,4 +1,4 @@
-import { SHEETS_SALES_URL, SHEETS_PRODUCTS_URL, SHEETS_DUES_URL } from '../config';
+import { SHEETS_SALES_URL, SHEETS_PRODUCTS_URL, SHEETS_DUES_URL, SHEETS_PRODUCTS_GET_URL, SHEETS_SALES_GET_URL } from '../config';
 import type { Sale } from '../models/Sale';
 import type { Product } from '../models/Product';
 
@@ -119,4 +119,132 @@ export async function sendDueClearToSheets(saleId: string): Promise<void> {
   } catch (err) {
     console.warn('[sheets] Falló limpiar PorCobrar en Google Sheets:', err);
   }
+}
+
+// Lectura opcional desde Sheets
+type ProductChangeRecord = {
+  date?: string;
+  action: 'create' | 'update' | 'delete';
+  id: string;
+  name: string;
+  unit: 'unit' | 'kg';
+  price: number;
+  stock: number;
+  createdAt?: number | null;
+  updatedAt?: number | null;
+};
+
+export async function fetchProductChangesFromSheets(): Promise<ProductChangeRecord[] | null> {
+  if (!SHEETS_PRODUCTS_GET_URL) return null;
+  try {
+    const json = await fetchJSONWithCORS(SHEETS_PRODUCTS_GET_URL);
+    if (!json) return null;
+    const arr = Array.isArray(json) ? json : (json as any).items;
+    if (!Array.isArray(arr)) return null;
+    return arr as ProductChangeRecord[];
+  } catch (e) {
+    console.warn('[sheets] No se pudo leer cambios de productos:', e);
+    return null;
+  }
+}
+
+export function reduceProductChanges(changes: ProductChangeRecord[]): import('../models/Product').Product[] {
+  const map = new Map<string, ProductChangeRecord>();
+  for (const ch of changes) {
+    if (!ch?.id) continue;
+    if (ch.action === 'delete') {
+      map.delete(ch.id);
+      continue;
+    }
+    map.set(ch.id, ch);
+  }
+  const out = Array.from(map.values()).map((c) => ({
+    id: c.id,
+    name: c.name,
+    unit: c.unit,
+    price: Number(c.price || 0),
+    stock: Number(c.stock || 0),
+    createdAt: typeof c.createdAt === 'number' ? c.createdAt : Date.now(),
+    updatedAt: typeof c.updatedAt === 'number' ? c.updatedAt! : undefined,
+  }));
+  return out;
+}
+
+// Ventas: lectura preagrupada desde Sheets (el endpoint debe devolver ventas con items)
+export type RemoteSaleItem = {
+  productId: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+};
+
+export type RemoteSale = {
+  id: string;
+  date: string | number; // ISO string o timestamp
+  department: number | string;
+  paymentStatus: 'pagado' | 'pendiente' | 'parcial' | string;
+  total: number;
+  items: RemoteSaleItem[];
+};
+
+export async function fetchSalesFromSheets(): Promise<import('../models/Sale').Sale[] | null> {
+  if (!SHEETS_SALES_GET_URL) return null;
+  try {
+    const json = await fetchJSONWithCORS(SHEETS_SALES_GET_URL);
+    const arr: RemoteSale[] = Array.isArray(json) ? (json as any) : (json as any)?.items;
+    if (!Array.isArray(arr)) return null;
+    const sales = arr.map((r) => ({
+      id: String(r.id),
+      createdAt: typeof r.date === 'number' ? r.date : new Date(String(r.date)).getTime(),
+      department: typeof r.department === 'number' ? r.department : parseInt(String(r.department || '0'), 10) || 0,
+      paymentStatus: (String(r.paymentStatus || 'pagado') as any),
+      total: Number(r.total || 0),
+      items: (r.items || []).map((it) => ({
+        productId: String(it.productId || ''),
+        quantity: Number(it.quantity || 0),
+        price: Number(it.price || 0),
+        subtotal: Number(it.subtotal || 0),
+      })),
+    })) as import('../models/Sale').Sale[];
+    return sales;
+  } catch (e) {
+    console.warn('[sheets] No se pudo leer ventas:', e);
+    return null;
+  }
+}
+
+// Utilidad: intenta CORS normal y si no, usa JSONP (?callback=)
+async function fetchJSONWithCORS(url: string): Promise<any | null> {
+  try {
+    const res = await fetch(url, { method: 'GET' });
+    if ((res as any).type === 'opaque') throw new Error('opaque');
+    return await (res as any).json();
+  } catch (_) {
+    return await fetchJSONP(url);
+  }
+}
+
+function fetchJSONP(url: string, timeoutMs = 6000): Promise<any | null> {
+  return new Promise((resolve) => {
+    const cbName = '__jsonp_cb_' + Math.random().toString(36).slice(2);
+    const sep = url.includes('?') ? '&' : '?';
+    const src = `${url}${sep}callback=${cbName}`;
+    (globalThis as any)[cbName] = (data: any) => {
+      cleanup();
+      resolve(data);
+    };
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve(null);
+    }, timeoutMs);
+    function cleanup() {
+      clearTimeout(timer);
+      delete (globalThis as any)[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+    document.head.appendChild(script);
+  });
 }

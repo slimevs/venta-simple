@@ -3,13 +3,14 @@ import { Sale } from '../models/Sale';
 import { KEYS, getJSON, setJSON } from '../storage';
 import { uuid } from '../utils/uuid';
 import { useProducts } from './ProductsContext';
-import { sendSaleToSheets, sendDueSaleToSheets, sendDueClearToSheets } from '../services/sheets';
+import { sendSaleToSheets, sendDueSaleToSheets, sendDueClearToSheets, fetchSalesFromSheets } from '../services/sheets';
 
 type SalesCtx = {
   sales: Sale[];
   add: (sale: Omit<Sale, 'id' | 'createdAt'>) => void;
   remove: (id: string) => void;
   update: (id: string, changes: Partial<Omit<Sale, 'id' | 'createdAt'>>) => void;
+  setAll: (items: Sale[]) => void;
 };
 
 const Ctx = createContext<SalesCtx | null>(null);
@@ -27,6 +28,10 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
         department: typeof s?.department === 'number' ? s.department : parseInt(String(s?.department ?? '0'), 10) || 0,
       }));
       setSales(migrated);
+      const remote = await fetchSalesFromSheets();
+      if (remote && remote.length) {
+        setSales(remote);
+      }
     })();
   }, []);
 
@@ -80,6 +85,9 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
         }
         return next;
       });
+    },
+    setAll(items) {
+      setSales(items);
     },
   }), [products, sales, updateProduct]);
 
