@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, Text, TextInput, View } from 'react-native';
 import { useProducts } from '../state/ProductsContext';
 import { Button, Field, Title, styles } from '../components/Common';
+import { formatCLP } from '../utils/currency';
 import { Product } from '../models/Product';
 
 export function ProductsScreen() {
@@ -97,7 +98,7 @@ export function ProductsScreen() {
               <Text style={styles.small}>Stock: {item.stock} {item.unit === 'kg' ? 'kg' : 'u'}</Text>
             </View>
             <View style={styles.row}>
-              <Text style={styles.small}>Precio: ${item.price.toFixed(2)} {item.unit === 'kg' ? '/kg' : ''}</Text>
+              <Text style={styles.small}>Precio: {formatCLP(item.price)} {item.unit === 'kg' ? '/kg' : ''}</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Button title="Editar" variant="secondary" onPress={() => {
                   setEditingId(item.id);
