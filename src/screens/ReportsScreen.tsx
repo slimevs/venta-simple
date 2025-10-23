@@ -65,6 +65,9 @@ export function ReportsScreen() {
     return { revenue, units, top, lastDays: daysArr, max };
   }, [filteredSales, products, days]);
 
+  const pendingSales = useMemo(() => filteredSales.filter((s) => s.paymentStatus !== 'pagado'), [filteredSales]);
+  const pendingTotal = useMemo(() => pendingSales.reduce((a, s) => a + s.total, 0), [pendingSales]);
+
   return (
     <View style={styles.screen}>
       <Title>Reportes</Title>
@@ -159,6 +162,54 @@ export function ReportsScreen() {
             </View>
           ))}
         </View>
+      </View>
+
+      <View style={[styles.card, { marginBottom: 12 }]}>
+        <Text style={{ fontWeight: '700', marginBottom: 6 }}>Ventas por cobrar</Text>
+        <Text>Total pendiente: {formatCLP(pendingTotal)} • Ventas: {pendingSales.length}</Text>
+        <View style={{ marginTop: 8 }}>
+          <Button title="Exportar CSV (Pendientes)" onPress={async () => {
+            try {
+              const csv = buildCSV(pendingSales, products);
+              const name = `pendientes_${new Date().toISOString().slice(0,10)}.csv`;
+              if (Platform.OS === 'web') {
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', name);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                Alert.alert('Descarga iniciada', `Se descargó ${name}`);
+              } else {
+                const uri = FileSystem.cacheDirectory + name;
+                await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+                const available = await Sharing.isAvailableAsync();
+                if (available) {
+                  await Sharing.shareAsync(uri, { mimeType: 'text/csv', dialogTitle: 'Compartir pendientes CSV' });
+                } else {
+                  Alert.alert('Exportación lista', `Archivo guardado en: ${uri}`);
+                }
+              }
+            } catch (e: any) {
+              Alert.alert('Error al exportar pendientes', String(e?.message ?? e));
+            }
+          }} />
+        </View>
+        <FlatList
+          style={{ marginTop: 8 }}
+          data={pendingSales}
+          keyExtractor={(s) => s.id}
+          renderItem={({ item: s }) => (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+              <Text style={styles.small}>{new Date(s.createdAt).toLocaleString()} • Depto: {typeof s.department === 'number' ? s.department : '-'}</Text>
+              <Text style={styles.small}>{formatCLP(s.total)}</Text>
+            </View>
+          )}
+          ListEmptyComponent={<Text style={styles.small}>No hay ventas pendientes en el rango</Text>}
+        />
       </View>
 
       <View style={[styles.card, { marginBottom: 12 }]}>
