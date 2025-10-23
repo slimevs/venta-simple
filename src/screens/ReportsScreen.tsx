@@ -189,7 +189,7 @@ function buildCSV(sales: Sale[], products: Product[]): string {
       const subtotal = it.subtotal;
       const cols = [
         date,
-        s.department ?? '',
+        typeof s.department === 'number' ? s.department : '',
         s.paymentStatus ?? '',
         name,
         p?.unit ?? '',
@@ -249,7 +249,7 @@ function buildReportHTML(sales: Sale[], products: Product[], start: string, end:
       const p = products.find((x) => x.id === it.productId);
       rows.push(`<tr>
         <td>${date}</td>
-        <td>${s.department || ''}</td>
+        <td>${typeof s.department === 'number' ? s.department : ''}</td>
         <td>${s.paymentStatus || ''}</td>
         <td>${p?.name ?? 'Desconocido'}</td>
         <td>${p?.unit ?? ''}</td>

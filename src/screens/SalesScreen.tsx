@@ -63,7 +63,8 @@ export function SalesScreen() {
     setError(null);
     try {
       if (items.length === 0) return;
-      add({ items, total, department: department.trim(), paymentStatus });
+      const dep = parseInt((department || '').trim(), 10) || 0;
+      add({ items, total, department: dep, paymentStatus });
       setItems([]);
       setSelectedId(null);
       setQuantity('');
@@ -101,7 +102,13 @@ export function SalesScreen() {
           </View>
         )}
         <Field label="Cantidad" value={quantity} onChangeText={setQuantity} placeholder="Ej. 2" keyboardType="numeric" />
-        <Field label="Departamento" value={department} onChangeText={setDepartment} placeholder="Ej. Almacén A" />
+        <Field
+          label="Departamento (numérico)"
+          value={department}
+          onChangeText={(t) => setDepartment(t.replace(/[^0-9]/g, ''))}
+          placeholder="Ej. 10"
+          keyboardType="numeric"
+        />
         <Text style={[styles.label, { marginTop: 6 }]}>Estado de pago</Text>
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
           {[
@@ -176,7 +183,7 @@ export function SalesScreen() {
                 <Text style={styles.small}>Total: ${s.total.toFixed(2)}</Text>
               </View>
               <View style={styles.row}>
-                <Text style={styles.small}>Depto: {s.department || '-'}</Text>
+                <Text style={styles.small}>Depto: {typeof s.department === 'number' ? s.department : '-'}</Text>
                 <Text style={[styles.small, { textTransform: 'capitalize' }]}>Estado: {s.paymentStatus}</Text>
               </View>
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>

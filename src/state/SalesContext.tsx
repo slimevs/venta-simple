@@ -20,8 +20,13 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const data = await getJSON<Sale[]>(KEYS.SALES, []);
-      setSales(data);
+      const data = await getJSON<any[]>(KEYS.SALES, []);
+      // Migración: asegurar department como número
+      const migrated: Sale[] = (data || []).map((s: any) => ({
+        ...s,
+        department: typeof s?.department === 'number' ? s.department : parseInt(String(s?.department ?? '0'), 10) || 0,
+      }));
+      setSales(migrated);
     })();
   }, []);
 
