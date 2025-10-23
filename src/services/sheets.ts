@@ -38,9 +38,11 @@ export async function sendSaleToSheets(sale: Sale, products: Product[]): Promise
   };
 
   try {
+    // Evitar CORS preflight: no establecer headers personalizados y usar body de texto
+    // Además, usar mode: 'no-cors' para no bloquear si el endpoint no devuelve CORS
     await fetch(SHEETS_SALES_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'no-cors',
       body: JSON.stringify(payload),
     });
   } catch (err) {
@@ -70,7 +72,7 @@ export async function sendProductChangeToSheets(change: ProductChange): Promise<
   try {
     await fetch(SHEETS_PRODUCTS_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'no-cors',
       body: JSON.stringify(payload),
     });
   } catch (err) {

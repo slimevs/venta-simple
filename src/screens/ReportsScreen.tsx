@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, FlatList, Text, View } from 'react-native';
+import { Alert, FlatList, Text, View, Platform } from 'react-native';
 import { useSales } from '../state/SalesContext';
 import { useProducts } from '../state/ProductsContext';
-import { Button, Title, styles } from '../components/Common';
+import { Button, Title, styles, Field } from '../components/Common';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
 import type { Sale } from '../models/Sale';
 import type { Product } from '../models/Product';
 
@@ -14,12 +15,26 @@ export function ReportsScreen() {
   const { sales } = useSales();
   const { products } = useProducts();
   const [days] = useState(7);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const filteredSales = useMemo(() => {
+    const start = parseYMD(startDate);
+    const end = parseYMD(endDate);
+    const endMs = end ? end.getTime() + 24 * 60 * 60 * 1000 - 1 : undefined;
+    return sales.filter((s) => {
+      const t = s.createdAt;
+      if (start && t < start.getTime()) return false;
+      if (endMs && t > endMs) return false;
+      return true;
+    });
+  }, [sales, startDate, endDate]);
 
   const summary = useMemo(() => {
-    const revenue = sales.reduce((a, s) => a + s.total, 0);
-    const units = sales.reduce((a, s) => a + s.items.reduce((b, i) => b + i.quantity, 0), 0);
+    const revenue = filteredSales.reduce((a, s) => a + s.total, 0);
+    const units = filteredSales.reduce((a, s) => a + s.items.reduce((b, i) => b + i.quantity, 0), 0);
     const perProduct: Record<string, number> = {};
-    for (const s of sales) for (const it of s.items) perProduct[it.productId] = (perProduct[it.productId] || 0) + it.quantity;
+    for (const s of filteredSales) for (const it of s.items) perProduct[it.productId] = (perProduct[it.productId] || 0) + it.quantity;
     const top = Object.entries(perProduct)
       .map(([productId, qty]) => ({ productId, qty }))
       .sort((a, b) => b.qty - a.qty)
@@ -38,7 +53,7 @@ export function ReportsScreen() {
       daysArr.push({ date: key, total: 0 });
       map[key] = 0;
     }
-    for (const s of sales) {
+    for (const s of filteredSales) {
       const key = dayKey(new Date(s.createdAt));
       if (key in map) map[key] += s.total;
     }
@@ -47,19 +62,48 @@ export function ReportsScreen() {
     const max = Math.max(1, ...daysArr.map((d) => d.total));
 
     return { revenue, units, top, lastDays: daysArr, max };
-  }, [sales, products, days]);
+  }, [filteredSales, products, days]);
 
   return (
     <View style={styles.screen}>
       <Title>Reportes</Title>
+      <View style={[styles.card, { marginBottom: 12 }]}>
+        <Text style={{ fontWeight: '700', marginBottom: 8 }}>Filtro por fechas</Text>
+        <Field label="Desde (YYYY-MM-DD)" value={startDate} onChangeText={setStartDate} placeholder="2025-01-01" />
+        <Field label="Hasta (YYYY-MM-DD)" value={endDate} onChangeText={setEndDate} placeholder="2025-12-31" />
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+          <View style={{ flex: 1 }}>
+            <Button title="Últimos 7 días" variant="secondary" onPress={() => setQuickRange(7, setStartDate, setEndDate)} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button title="Últimos 30 días" variant="secondary" onPress={() => setQuickRange(30, setStartDate, setEndDate)} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button title="Limpiar" variant="secondary" onPress={() => { setStartDate(''); setEndDate(''); }} />
+          </View>
+        </View>
+      </View>
       <View style={[styles.card, { marginBottom: 12 }]}>
         <Text>Ingresos totales: ${summary.revenue.toFixed(2)}</Text>
         <Text>Cantidad total (u/kg): {summary.units}</Text>
         <View style={{ marginTop: 8 }}>
           <Button title="Exportar CSV" onPress={async () => {
             try {
-              const csv = buildCSV(sales, products);
+              const csv = buildCSV(filteredSales, products);
               const name = `reporte_${new Date().toISOString().slice(0,10)}.csv`;
+              if (Platform.OS === 'web') {
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', name);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                Alert.alert('Descarga iniciada', `Se descargó ${name}`);
+                return;
+              }
               const uri = FileSystem.cacheDirectory + name;
               await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 });
               const available = await Sharing.isAvailableAsync();
@@ -70,6 +114,32 @@ export function ReportsScreen() {
               }
             } catch (e: any) {
               Alert.alert('Error al exportar', String(e?.message ?? e));
+            }
+          }} />
+          <View style={{ height: 8 }} />
+          <Button title="Exportar PDF" onPress={async () => {
+            try {
+              const html = buildReportHTML(filteredSales, products, startDate, endDate);
+              if (Platform.OS === 'web') {
+                const w = window.open('', '_blank');
+                if (w) {
+                  w.document.write(html);
+                  w.document.close();
+                  w.focus();
+                  w.print();
+                } else {
+                  Alert.alert('No se pudo abrir la ventana de impresión');
+                }
+              } else {
+                const { uri } = await Print.printToFileAsync({ html });
+                if (await Sharing.isAvailableAsync()) {
+                  await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Compartir reporte PDF' });
+                } else {
+                  Alert.alert('PDF listo', `Archivo guardado en: ${uri}`);
+                }
+              }
+            } catch (e: any) {
+              Alert.alert('Error al exportar PDF', String(e?.message ?? e));
             }
           }} />
         </View>
@@ -140,4 +210,72 @@ function csvCell(v: string | number): string {
     return '"' + s.replace(/"/g, '""') + '"';
   }
   return s;
+}
+
+function parseYMD(s: string): Date | null {
+  if (!s) return null;
+  const ok = /^\d{4}-\d{2}-\d{2}$/.test(s);
+  if (!ok) return null;
+  const d = new Date(s + 'T00:00:00Z');
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function setQuickRange(days: number, setStart: (s: string) => void, setEnd: (s: string) => void) {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - (days - 1));
+  setStart(start.toISOString().slice(0, 10));
+  setEnd(end.toISOString().slice(0, 10));
+}
+
+function buildReportHTML(sales: Sale[], products: Product[], start: string, end: string): string {
+  const header = `
+  <style>
+    body{font-family: Arial, Helvetica, sans-serif; padding:16px;}
+    h1{font-size:20px;margin:0 0 8px 0}
+    .small{color:#666;font-size:12px;margin-bottom:12px}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th,td{border:1px solid #ddd;padding:6px;text-align:left}
+    th{background:#f3f4f6}
+    tfoot td{font-weight:bold}
+  </style>`;
+  const range = start || end ? `<div class="small">Rango: ${start || 'inicio'} a ${end || 'fin'}</div>` : '';
+  const rows: string[] = [];
+  let total = 0;
+  for (const s of sales) {
+    total += s.total;
+    const date = new Date(s.createdAt).toLocaleString();
+    for (const it of s.items) {
+      const p = products.find((x) => x.id === it.productId);
+      rows.push(`<tr>
+        <td>${date}</td>
+        <td>${s.department || ''}</td>
+        <td>${s.paymentStatus || ''}</td>
+        <td>${p?.name ?? 'Desconocido'}</td>
+        <td>${p?.unit ?? ''}</td>
+        <td>${it.quantity}</td>
+        <td>${it.price}</td>
+        <td>${it.subtotal}</td>
+        <td>${s.total}</td>
+      </tr>`);
+    }
+  }
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>${header}</head><body>
+    <h1>Reporte de Ventas</h1>
+    ${range}
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th><th>Departamento</th><th>Estado pago</th><th>Producto</th><th>Unidad</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th><th>Total venta</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.join('')}
+      </tbody>
+      <tfoot>
+        <tr><td colspan="8">Total</td><td>${total.toFixed(2)}</td></tr>
+      </tfoot>
+    </table>
+  </body></html>`;
+  return html;
 }

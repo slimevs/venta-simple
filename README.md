@@ -6,7 +6,7 @@ App móvil sencilla para:
 - Gestionar (CRUD) de productos con stock y precio.
 - Ver reportes básicos: ingresos, unidades vendidas, top productos, ventas por día.
 
-Implementación sin librerías de navegación para facilitar ejecución inicial. Usa un tab bar simple y almacenamiento local con AsyncStorage si está disponible (con fallback en memoria si no está instalado).
+La app usa React Navigation (Bottom Tabs) para navegar entre Ventas, Productos y Reportes. Usa almacenamiento local con AsyncStorage si está disponible (con fallback en memoria si no está instalado).
 
 ## Requisitos
 
@@ -23,19 +23,26 @@ Implementación sin librerías de navegación para facilitar ejecución inicial.
 
    npm install @react-native-async-storage/async-storage
 
-2. Instala navegación y módulos de exportación (si no se instalaron automáticamente con el paso anterior):
-
-   npm install @react-navigation/native @react-navigation/bottom-tabs react-native-screens react-native-safe-area-context react-native-gesture-handler react-native-reanimated expo-file-system expo-sharing
-
-   Nota: Reanimated requiere el plugin en `babel.config.js` (ya incluido).
-
-3. Inicia el proyecto:
+2. Inicia el proyecto:
 
    npm run start
 
    - Android: `npm run android`
    - iOS: `npm run ios`
    - Web: `npm run web`
+
+### Scripts de conveniencia para Google Sheets
+
+- macOS/Linux:
+  - `npm run start:sheets:unix`
+  - `npm run web:sheets:unix`
+  - `npm run export:web:sheets`
+- Windows (PowerShell):
+  - `npm run start:sheets:win`
+  - `npm run web:sheets:win`
+  - `npm run export:web:sheets:win`
+
+Antes de usarlos (solo si no quieres usar los que ya traen la URL), reemplaza los placeholders en `package.json` o define las variables de entorno necesarias. En CI (GitHub Pages), las variables ya se inyectan vía Actions Variables (`EXPO_PUBLIC_SHEETS_SALES_URL`, `EXPO_PUBLIC_SHEETS_PRODUCTS_URL`).
 
 ## Despliegue en GitHub Pages (Web)
 
@@ -60,10 +67,7 @@ Notas:
 
 - El export web usa `expo export --platform web` y genera en `dist/`.
 - Se copia `index.html` a `404.html` para permitir SPA fallback en Pages.
-- El workflow inyecta `<base href="/<repo>/">` en `index.html` y `404.html` para que los assets se resuelvan bajo la subruta de GitHub Pages y evitar 404.
-
-Si cambias el nombre del repositorio o publicas en un dominio personalizado sin subruta, elimina ese paso o ajusta el `href`.
-- Si sirves el sitio bajo `/<repo>/`, Expo web debería funcionar con rutas relativas del export. Si ves rutas rotas, avísame para ajustar el base path del export.
+- El workflow inyecta `<base href="/<repo>/">` en `index.html` y `404.html` y reescribe referencias absolutas para evitar 404.
 
 ## Estructura
 
@@ -73,6 +77,7 @@ Si cambias el nombre del repositorio o publicas en un dominio personalizado sin 
 - `src/storage`: Abstracción para `AsyncStorage` con fallback.
 - `src/screens`: Pantallas de Productos, Ventas y Reportes.
 - `src/components/Common.tsx`: UI reutilizable (botones, inputs, estilos).
+- `docs/google-sheets.md`: Guía para integrarse con Google Sheets.
 
 ## Notas de uso
 
@@ -82,10 +87,11 @@ Si cambias el nombre del repositorio o publicas en un dominio personalizado sin 
   - Campos adicionales: departamento y estado de pago (pagado/pendiente/parcial).
   - Sección “Ventas por cobrar”: lista ventas en estado pendiente o parcial y permite actualizar su estado a pagado/pendiente/parcial.
 - Reportes: resumen de ingresos y unidades, top productos y gráfico simple por día.
+  - Filtros por rango de fechas (campos Desde/Hasta y accesos rápidos 7/30 días).
   - Botón “Exportar CSV”: genera un CSV y lo comparte (o guarda en caché si no hay mecanismo de compartir disponible).
+  - Botón “Exportar PDF”: genera un PDF (nativo con `expo-print` en iOS/Android; en web abre la ventana de impresión del navegador para guardar como PDF).
 
 ## Próximos pasos sugeridos
 
-- Sustituir el tab bar manual por React Navigation.
-- Añadir exportación de reportes (CSV/PDF) y filtros por rango de fechas.
+- Añadir exportación de reportes a PDF y filtros por rango de fechas.
 - Añadir autenticación y sincronización remota (si se requiere multi-dispositivo).
