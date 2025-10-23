@@ -9,7 +9,11 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "export:web": "expo export --platform web --output-dir dist"
+    "export:web": "expo export --platform web --output-dir dist",
+    "start:sheets:unix": "EXPO_PUBLIC_SHEETS_SALES_URL=https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec EXPO_PUBLIC_SHEETS_PRODUCTS_URL=https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec expo start",
+    "start:sheets:win": "powershell -NoProfile -Command \"$Env:EXPO_PUBLIC_SHEETS_SALES_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec'; $Env:EXPO_PUBLIC_SHEETS_PRODUCTS_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec'; npm run start\"",
+    "web:sheets:unix": "EXPO_PUBLIC_SHEETS_SALES_URL=https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec EXPO_PUBLIC_SHEETS_PRODUCTS_URL=https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec expo start --web",
+    "export:web:sheets": "EXPO_PUBLIC_SHEETS_SALES_URL=https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec EXPO_PUBLIC_SHEETS_PRODUCTS_URL=https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec npm run export:web"
   },
   "dependencies": {
     "@expo/metro-runtime": "~3.2.3",

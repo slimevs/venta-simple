@@ -3,6 +3,7 @@ import { Sale } from '../models/Sale';
 import { KEYS, getJSON, setJSON } from '../storage';
 import { uuid } from '../utils/uuid';
 import { useProducts } from './ProductsContext';
+import { sendSaleToSheets } from '../services/sheets';
 
 type SalesCtx = {
   sales: Sale[];
@@ -42,10 +43,12 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
         const prod = products.find((p) => p.id === item.productId)!;
         updateProduct(prod.id, { stock: prod.stock - item.quantity });
       }
-      setSales((prev) => [
-        ...prev,
-        { id: uuid(), createdAt: Date.now(), ...sale },
-      ]);
+      const newSale: Sale = { id: uuid(), createdAt: Date.now(), ...sale } as Sale;
+      setSales((prev) => [...prev, newSale]);
+      // Enviar a Google Sheets (no bloqueante)
+      (async () => {
+        await sendSaleToSheets(newSale, products);
+      })();
     },
     remove(id) {
       setSales((prev) => prev.filter((s) => s.id !== id));
