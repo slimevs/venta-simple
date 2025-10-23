@@ -10,14 +10,16 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { ToastProvider } from './src/components/Toast';
 
 const Tab = createBottomTabNavigator();
 
 export default function App() {
   return (
-    <ProductsProvider>
-      <SalesProvider>
-        <NavigationContainer theme={navTheme}>
+    <ToastProvider>
+      <ProductsProvider>
+        <SalesProvider>
+          <NavigationContainer theme={navTheme}>
           <Tab.Navigator
             screenOptions={({ route }) => ({
               headerShown: false,
@@ -49,9 +51,10 @@ export default function App() {
             <Tab.Screen name="Reportes" component={ReportsScreen} options={{ title: 'Reportes' }} />
           </Tab.Navigator>
           <StatusBar style={Platform.OS === 'ios' ? 'dark' : 'auto'} />
-        </NavigationContainer>
-      </SalesProvider>
-    </ProductsProvider>
+          </NavigationContainer>
+        </SalesProvider>
+      </ProductsProvider>
+    </ToastProvider>
   );
 }
 

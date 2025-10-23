@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, FlatList, Text, View, Platform } from 'react-native';
+import { Alert, FlatList, Text, View, Platform, ScrollView } from 'react-native';
 import { useSales } from '../state/SalesContext';
 import { useProducts } from '../state/ProductsContext';
 import { Button, Title, styles, Field } from '../components/Common';
@@ -69,7 +69,7 @@ export function ReportsScreen() {
   const pendingTotal = useMemo(() => pendingSales.reduce((a, s) => a + s.total, 0), [pendingSales]);
 
   return (
-    <View style={styles.screen}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
       <Title>Reportes</Title>
       <View style={[styles.card, { marginBottom: 12 }]}>
         <Text style={{ fontWeight: '700', marginBottom: 8 }}>Filtro por fechas</Text>
@@ -200,6 +200,7 @@ export function ReportsScreen() {
         </View>
         <FlatList
           style={{ marginTop: 8 }}
+          scrollEnabled={false}
           data={pendingSales}
           keyExtractor={(s) => s.id}
           renderItem={({ item: s }) => (
@@ -215,6 +216,7 @@ export function ReportsScreen() {
       <View style={[styles.card, { marginBottom: 12 }]}>
         <Text style={{ fontWeight: '700', marginBottom: 6 }}>Top productos</Text>
         <FlatList
+          scrollEnabled={false}
           data={summary.top}
           keyExtractor={(i) => i.name}
           renderItem={({ item }) => (
@@ -223,10 +225,10 @@ export function ReportsScreen() {
               <Text>{item.qty}</Text>
             </View>
           )}
-          ListEmptyComponent={<Text style={styles.small}>Sin ventas aÃºn</Text>}
+          ListEmptyComponent={<Text style={styles.small}>Sin ventas aúnºn</Text>}
         />
       </View>
-    </View>
+    </ScrollView>
   );
 }
 

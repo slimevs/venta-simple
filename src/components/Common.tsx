@@ -15,31 +15,35 @@ export function Field({
   onChangeText,
   placeholder,
   keyboardType,
+  error,
 }: {
   label: string;
   value: string;
   onChangeText: (t: string) => void;
   placeholder?: string;
   keyboardType?: 'default' | 'numeric';
+  error?: string | null;
 }) {
   return (
     <View style={{ marginBottom: 10 }}>
-      <Label>{label}</Label>
+      <Text style={[styles.label, error ? { color: '#b91c1c' } : null]}>{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         keyboardType={keyboardType}
-        style={styles.input}
+        style={[styles.input, error ? { borderColor: '#ef4444' } : null]}
       />
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
   );
 }
 
-export function Button({ title, onPress, variant = 'primary' }: { title: string; onPress: () => void; variant?: 'primary' | 'secondary' | 'danger' }) {
+export function Button({ title, onPress, variant = 'primary', disabled = false }: { title: string; onPress: () => void; variant?: 'primary' | 'secondary' | 'danger'; disabled?: boolean }) {
   const bg = variant === 'primary' ? '#1d4ed8' : variant === 'danger' ? '#dc2626' : '#6b7280';
+  const finalBg = disabled ? '#9ca3af' : bg;
   return (
-    <Pressable onPress={onPress} style={[styles.btn, { backgroundColor: bg }]}>
+    <Pressable disabled={disabled} onPress={() => !disabled && onPress()} style={[styles.btn, { backgroundColor: finalBg, opacity: disabled ? 0.7 : 1 }]}>
       <Text style={styles.btnText}>{title}</Text>
     </Pressable>
   );
@@ -55,5 +59,5 @@ export const styles = StyleSheet.create({
   btnText: { color: 'white', fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   small: { fontSize: 12, color: '#6b7280' },
+  errorText: { fontSize: 12, color: '#b91c1c', marginTop: 4 },
 });
-
