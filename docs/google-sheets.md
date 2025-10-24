@@ -1,6 +1,6 @@
 # Integración con Google Sheets (Ventas, Productos, PorCobrar e Histórico)
 
-Esta guía describe cómo conectar la app con Google Sheets para escribir y leer datos de Productos y Ventas, incluyendo ventas por cobrar (pendientes/parciales) y un histórico al momento de pago.
+Esta guía describe cómo conectar la app con Google Sheets para escribir y leer datos de Productos y Ventas, incluyendo ventas por cobrar (pendientes) y un histórico al momento de pago.
 
 ---
 
@@ -9,13 +9,13 @@ Esta guía describe cómo conectar la app con Google Sheets para escribir y leer
 Crea una Hoja en Google Drive con estas pestañas y columnas (fila 1: encabezados):
 
 - Ventas (`Ventas`)
-  - venta_id, fecha, departamento, estado_pago, producto, unidad, cantidad, precio, subtotal, total_venta, product_id
+  - venta_id, fecha, departamento, estado_pago, tipo_pago, producto, unidad, cantidad, precio, subtotal, total_venta, product_id
 
 - Por cobrar (`PorCobrar`)
-  - venta_id, fecha, departamento, estado_pago, producto, unidad, cantidad, precio, subtotal, total_venta
+  - venta_id, fecha, departamento, estado_pago, tipo_pago, producto, unidad, cantidad, precio, subtotal, total_venta
 
 - Histórico (`Historico`)
-  - venta_id, pagado_en, fecha, departamento, estado_pago, producto, unidad, cantidad, precio, subtotal, total_venta
+  - venta_id, pagado_en, fecha, departamento, estado_pago, tipo_pago, producto, unidad, cantidad, precio, subtotal, total_venta
 
 - Productos (`Productos`)
   - fecha, accion, id, nombre, unidad, precio, stock, creado_en, actualizado_en
@@ -49,6 +49,9 @@ function doPost(e) {
     if (data && data.dueClear === true && data.id) {
       return movePorCobrarToHistorico_(data.id);
     }
+    if (data && data.dueDelete === true && data.id) {
+      return deleteFromPorCobrar_(data.id);
+    }
 
     // Cambios de productos (payload con action/id)
     if (data && data.action && data.id) {
@@ -77,7 +80,7 @@ function doGet(e) {
 function appendVentas_(data) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName('Ventas') || ss.insertSheet('Ventas');
-  // Encabezados: venta_id | fecha | departamento | estado_pago | producto | unidad | cantidad | precio | subtotal | total_venta | product_id
+  // Encabezados: venta_id | fecha | departamento | estado_pago | tipo_pago | producto | unidad | cantidad | precio | subtotal | total_venta | product_id
   var rows = [];
   (data.items || []).forEach(function(it) {
     rows.push([
@@ -85,6 +88,7 @@ function appendVentas_(data) {
       data.date,
       data.department || '',
       data.paymentStatus || '',
+      data.paymentType || '',
       it.name || '',
       it.unit || '',
       it.quantity || 0,
@@ -101,15 +105,28 @@ function appendVentas_(data) {
 function appendPorCobrar_(data) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName('PorCobrar') || ss.insertSheet('PorCobrar');
+  // Construir las filas nuevas para este venta_id
   var rows = [];
   (data.items || []).forEach(function(it) {
     rows.push([
       data.id || '',
-      data.date, data.department || '', data.paymentStatus || '',
+      data.date, data.department || '', data.paymentStatus || '', data.paymentType || '',
       it.name || '', it.unit || '', it.quantity || 0, it.price || 0, it.subtotal || 0,
       data.total || 0,
     ]);
   });
+  // Buscar filas existentes con el mismo venta_id y eliminarlas (evita duplicados)
+  var last = sh.getLastRow();
+  if (last >= 2) {
+    var rng = sh.getRange(2, 1, last - 1, 11); // A:K
+    var vals = rng.getValues();
+    for (var i = vals.length - 1; i >= 0; i--) {
+      if (String(vals[i][0]) === String(data.id || '')) {
+        sh.deleteRow(i + 2);
+      }
+    }
+  }
+  // Insertar las filas nuevas al final
   if (rows.length) sh.getRange(sh.getLastRow()+1, 1, rows.length, rows[0].length).setValues(rows);
   return json_({ ok: true, count: rows.length });
 }
@@ -121,7 +138,7 @@ function movePorCobrarToHistorico_(id) {
   if (!id) return json_({ ok: false, error: 'id requerido' }, 400);
   var last = shDue.getLastRow();
   if (last < 2) return json_({ ok: true, moved: 0 });
-  var rng = shDue.getRange(2, 1, last - 1, 10); // columnas A:J
+  var rng = shDue.getRange(2, 1, last - 1, 11); // columnas A:K (incluye tipo_pago)
   var vals = rng.getValues();
   var moved = 0;
   for (var i = vals.length - 1; i >= 0; i--) {
@@ -135,6 +152,24 @@ function movePorCobrarToHistorico_(id) {
     }
   }
   return json_({ ok: true, moved: moved });
+}
+
+function deleteFromPorCobrar_(id) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var shDue = ss.getSheetByName('PorCobrar') || ss.insertSheet('PorCobrar');
+  if (!id) return json_({ ok: false, error: 'id requerido' }, 400);
+  var last = shDue.getLastRow();
+  if (last < 2) return json_({ ok: true, deleted: 0 });
+  var rng = shDue.getRange(2, 1, last - 1, 11); // columnas A:K (incluye tipo_pago)
+  var vals = rng.getValues();
+  var deleted = 0;
+  for (var i = vals.length - 1; i >= 0; i--) {
+    if (String(vals[i][0]) === String(id)) {
+      shDue.deleteRow(i + 2);
+      deleted++;
+    }
+  }
+  return json_({ ok: true, deleted: deleted });
 }
 
 function appendProducto_(data) {
@@ -158,8 +193,8 @@ function readVentasAgrupadas_() {
   var last = sh.getLastRow();
   if (last < 2) return json_({ items: [] });
 
-  var data = sh.getRange(2, 1, last - 1, 11).getValues();
-  var COL = { venta_id: 0, fecha: 1, departamento: 2, estado_pago: 3, producto: 4, unidad: 5, cantidad: 6, precio: 7, subtotal: 8, total_venta: 9, product_id: 10 };
+  var data = sh.getRange(2, 1, last - 1, 12).getValues();
+  var COL = { venta_id: 0, fecha: 1, departamento: 2, estado_pago: 3, tipo_pago: 4, producto: 5, unidad: 6, cantidad: 7, precio: 8, subtotal: 9, total_venta: 10, product_id: 11 };
   var map = {};
   data.forEach(function(r){
     var id = String(r[COL.venta_id] || '');
@@ -170,6 +205,7 @@ function readVentasAgrupadas_() {
         date: r[COL.fecha] || new Date().toISOString(),
         department: r[COL.departamento] || 0,
         paymentStatus: String(r[COL.estado_pago] || 'pagado'),
+        paymentType: String(r[COL.tipo_pago] || 'efectivo'),
         total: Number(r[COL.total_venta] || 0),
         items: []
       };
@@ -245,7 +281,7 @@ Definirlas
   - La app envía con `mode: 'no-cors'` y sin headers personalizados (evita preflight). No lee la respuesta en web.
   - Ventas:
     - Pagadas → `Ventas`
-    - Pendiente/Parcial → `PorCobrar`
+    - Pendiente → `PorCobrar`
     - Cambio a pagado → envía `dueClear` para mover de `PorCobrar` a `Historico`
   - Productos: create/update/delete → `Productos`
 

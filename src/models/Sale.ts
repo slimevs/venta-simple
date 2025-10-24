@@ -10,6 +10,7 @@ export interface Sale {
   items: SaleItem[];
   total: number;
   department: number; // departamento numérico
-  paymentStatus: 'pagado' | 'pendiente' | 'parcial';
+  paymentStatus: 'pagado' | 'pendiente';
+  paymentType: 'efectivo' | 'transferencia';
   createdAt: number;
 }

@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Alert, FlatList, Pressable, Text, TextInput, View, ScrollView } from 'react-native';
+import { Alert, FlatList, Pressable, Text, TextInput, View, ScrollView, Platform } from 'react-native';
 import { useProducts } from '../state/ProductsContext';
 import { useSales } from '../state/SalesContext';
 import { Button, Field, Title, styles } from '../components/Common';
@@ -11,7 +11,7 @@ import { useToast } from '../components/Toast';
 
 export function SalesScreen() {
   const { products } = useProducts();
-  const { sales, add, update } = useSales();
+  const { sales, add, update, remove } = useSales();
   const navigation = useNavigation<any>();
   const toast = useToast();
   const scrollRef = useRef<ScrollView>(null);
@@ -24,9 +24,10 @@ export function SalesScreen() {
   const [filter, setFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [department, setDepartment] = useState('');
-  const [paymentStatus, setPaymentStatus] = useState<'pagado' | 'pendiente' | 'parcial'>('pagado');
+  const [paymentStatus, setPaymentStatus] = useState<'pagado' | 'pendiente'>('pagado');
   const [qtyError, setQtyError] = useState<string | null>(null);
   const [deptError, setDeptError] = useState<string | null>(null);
+  const [paymentType, setPaymentType] = useState<'efectivo' | 'transferencia'>('efectivo');
   const [productError, setProductError] = useState<boolean>(false);
 
   const selectedProduct = useMemo(() => products.find((p) => p.id === selectedId), [products, selectedId]);
@@ -93,7 +94,7 @@ export function SalesScreen() {
         setDeptError('Ingresa un departamento numérico');
         return;
       }
-      add({ items, total, department: dep, paymentStatus });
+      add({ items, total, department: dep, paymentStatus, paymentType });
       setItems([]);
       setSelectedId(null);
       setQuantity('');
@@ -102,6 +103,7 @@ export function SalesScreen() {
       setQtyError(null);
       setProductError(false);
       setPaymentStatus('pagado');
+      setPaymentType('efectivo');
       toast.show('Venta guardada', { type: 'success' });
     } catch (e: any) {
       setError(String(e?.message ?? e));
@@ -152,12 +154,33 @@ export function SalesScreen() {
           keyboardType="numeric"
           error={deptError}
         />
+        <Text style={[styles.label, { marginTop: 6 }]}>Tipo de pago</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+          {[
+            { key: 'efectivo', label: 'Efectivo' },
+            { key: 'transferencia', label: 'Transferencia' },
+          ].map((opt) => (
+            <Pressable
+              key={opt.key}
+              onPress={() => setPaymentType(opt.key as any)}
+              style={{
+                paddingVertical: 6,
+                paddingHorizontal: 10,
+                borderRadius: 6,
+                borderWidth: 1,
+                borderColor: paymentType === opt.key ? '#1d4ed8' : '#d1d5db',
+                backgroundColor: paymentType === opt.key ? '#dbeafe' : 'white',
+              }}
+            >
+              <Text style={{ color: '#111827' }}>{opt.label}</Text>
+            </Pressable>
+          ))}
+        </View>
         <Text style={[styles.label, { marginTop: 6 }]}>Estado de pago</Text>
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
           {[
             { key: 'pagado', label: 'Pagado' },
             { key: 'pendiente', label: 'Pendiente' },
-            { key: 'parcial', label: 'Parcial' },
           ].map((opt) => (
             <Pressable
               key={opt.key}
@@ -230,21 +253,62 @@ export function SalesScreen() {
                 <Text style={styles.small}>Depto: {typeof s.department === 'number' ? s.department : '-'}</Text>
                 <Text style={[styles.small, { textTransform: 'capitalize' }]}>Estado: {s.paymentStatus}</Text>
               </View>
+              <View style={styles.row}>
+                <Text style={[styles.small, { textTransform: 'capitalize' }]}>Pago: {s.paymentType}</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {[
+                    { key: 'efectivo', label: 'Efectivo' },
+                    { key: 'transferencia', label: 'Transferencia' },
+                  ].map((opt) => (
+                    <Pressable
+                      key={opt.key}
+                      onPress={() => update(s.id, { paymentType: opt.key as any })}
+                      style={{
+                        paddingVertical: 4,
+                        paddingHorizontal: 8,
+                        borderRadius: 6,
+                        borderWidth: 1,
+                        borderColor: s.paymentType === (opt.key as any) ? '#1d4ed8' : '#d1d5db',
+                        backgroundColor: s.paymentType === (opt.key as any) ? '#dbeafe' : 'white',
+                      }}
+                    >
+                      <Text style={{ color: '#111827' }}>{opt.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                 <View style={{ flex: 1 }}>
                   <Button title="Marcar Pagado" onPress={() => { update(s.id, { paymentStatus: 'pagado' }); toast.show('Venta marcada como pagada', { type: 'success' }); }} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Button title="Pendiente" variant="secondary" onPress={() => update(s.id, { paymentStatus: 'pendiente' })} />
+                  <Button
+                    title="Eliminar"
+                    variant="danger"
+                    onPress={() => {
+                      if (Platform.OS === 'web') {
+                        const ok = typeof window !== 'undefined' && typeof (window as any).confirm === 'function'
+                          ? (window as any).confirm('¿Deseas eliminar esta venta pendiente?')
+                          : true;
+                        if (ok) {
+                          remove(s.id);
+                          toast.show('Venta eliminada', { type: 'success' });
+                        }
+                      } else {
+                        Alert.alert('Eliminar venta pendiente', '¿Deseas eliminar esta venta pendiente?', [
+                          { text: 'Cancelar', style: 'cancel' },
+                          { text: 'Eliminar', style: 'destructive', onPress: () => { remove(s.id); toast.show('Venta eliminada', { type: 'success' }); } },
+                        ]);
+                      }
+                    }}
+                  />
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Button title="Parcial" variant="secondary" onPress={() => update(s.id, { paymentStatus: 'parcial' })} />
-                </View>
+                {/* Parcial eliminado */}
               </View>
             </View>
           )}
           scrollEnabled={false}
-          ListEmptyComponent={<Text style={styles.small}>Sin ventas pendientes o parciales</Text>}
+          ListEmptyComponent={<Text style={styles.small}>Sin ventas pendientes</Text>}
         />
       </View>
       </ScrollView>

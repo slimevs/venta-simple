@@ -228,9 +228,12 @@ export function ReportsScreen() {
           data={pendingSales}
           keyExtractor={(s) => s.id}
           renderItem={({ item: s }) => (
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-              <Text style={styles.small}>{new Date(s.createdAt).toLocaleString()} • Depto: {typeof s.department === 'number' ? s.department : '-'}</Text>
-              <Text style={styles.small}>{formatCLP(s.total)}</Text>
+            <View style={{ marginBottom: 6 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={styles.small}>{new Date(s.createdAt).toLocaleString()} • Depto: {typeof s.department === 'number' ? s.department : '-'}</Text>
+                <Text style={styles.small}>{formatCLP(s.total)}</Text>
+              </View>
+              <Text style={styles.small}>Pago: {s.paymentType}</Text>
             </View>
           )}
           ListEmptyComponent={<Text style={styles.small}>No hay ventas pendientes en el rango</Text>}
@@ -257,7 +260,7 @@ export function ReportsScreen() {
 }
 
 function buildCSV(sales: Sale[], products: Product[]): string {
-  const header = ['fecha', 'departamento', 'estado_pago', 'producto', 'unidad', 'cantidad', 'precio', 'subtotal', 'total_venta'];
+  const header = ['fecha', 'departamento', 'estado_pago', 'tipo_pago', 'producto', 'unidad', 'cantidad', 'precio', 'subtotal', 'total_venta'];
   const rows: string[] = [header.join(',')];
   for (const s of sales) {
     const date = new Date(s.createdAt).toISOString();
@@ -269,6 +272,7 @@ function buildCSV(sales: Sale[], products: Product[]): string {
         date,
         typeof s.department === 'number' ? s.department : '',
         s.paymentStatus ?? '',
+        s.paymentType ?? '',
         name,
         p?.unit ?? '',
         it.quantity,
@@ -329,6 +333,7 @@ function buildReportHTML(sales: Sale[], products: Product[], start: string, end:
         <td>${date}</td>
         <td>${typeof s.department === 'number' ? s.department : ''}</td>
         <td>${s.paymentStatus || ''}</td>
+        <td>${s.paymentType || ''}</td>
         <td>${p?.name ?? 'Desconocido'}</td>
         <td>${p?.unit ?? ''}</td>
         <td>${it.quantity}</td>
@@ -344,17 +349,16 @@ function buildReportHTML(sales: Sale[], products: Product[], start: string, end:
     <table>
       <thead>
         <tr>
-          <th>Fecha</th><th>Departamento</th><th>Estado pago</th><th>Producto</th><th>Unidad</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th><th>Total venta</th>
+          <th>Fecha</th><th>Departamento</th><th>Estado pago</th><th>Tipo pago</th><th>Producto</th><th>Unidad</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th><th>Total venta</th>
         </tr>
       </thead>
       <tbody>
         ${rows.join('')}
       </tbody>
       <tfoot>
-        <tr><td colspan="8">Total</td><td>${formatCLP(total)}</td></tr>
+        <tr><td colspan="9">Total</td><td>${formatCLP(total)}</td></tr>
       </tfoot>
     </table>
   </body></html>`;
   return html;
 }
-

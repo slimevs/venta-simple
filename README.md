@@ -84,8 +84,8 @@ Notas:
 - Productos: crea/edita/elimina, define precio y stock.
   - Soporta productos unitarios y por kilogramo (kg). El precio se interpreta por unidad o por kg según selección, y el stock acepta decimales si es por kg.
 - Ventas: agrega productos a la venta, valida stock y guarda; el stock se descuenta automáticamente.
-  - Campos adicionales: departamento y estado de pago (pagado/pendiente/parcial).
-  - Sección “Ventas por cobrar”: lista ventas en estado pendiente o parcial y permite actualizar su estado a pagado/pendiente/parcial.
+  - Campos adicionales: departamento y estado de pago (pagado/pendiente).
+  - Sección “Ventas por cobrar”: lista ventas en estado pendiente y permite actualizar su estado a pagado/pendiente.
 - Reportes: resumen de ingresos y unidades, top productos y gráfico simple por día.
   - Filtros por rango de fechas (campos Desde/Hasta y accesos rápidos 7/30 días).
   - Botón “Exportar CSV”: genera un CSV y lo comparte (o guarda en caché si no hay mecanismo de compartir disponible).

@@ -17,8 +17,7 @@
     "web:sheets:win": "powershell -NoProfile -Command \"$Env:EXPO_PUBLIC_SHEETS_SALES_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec'; $Env:EXPO_PUBLIC_SHEETS_PRODUCTS_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec'; expo start --web\"",
     "export:web:sheets:win": "powershell -NoProfile -Command \"$Env:EXPO_PUBLIC_SHEETS_SALES_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec'; $Env:EXPO_PUBLIC_SHEETS_PRODUCTS_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec'; npm run export:web\"",
     "web:sheets:get:unix": "EXPO_PUBLIC_SHEETS_PRODUCTS_GET_URL=https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec?type=products EXPO_PUBLIC_SHEETS_SALES_GET_URL=https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec?type=sales expo start --web",
-    "web:sheets:get:win": "powershell -NoProfile -Command \"$Env:EXPO_PUBLIC_SHEETS_PRODUCTS_GET_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec?type=products'; $Env:EXPO_PUBLIC_SHEETS_SALES_GET_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec?type=sales'; expo start --web\""
-    ,
+    "web:sheets:get:win": "powershell -NoProfile -Command \"$Env:EXPO_PUBLIC_SHEETS_PRODUCTS_GET_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec?type=products'; $Env:EXPO_PUBLIC_SHEETS_SALES_GET_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec?type=sales'; expo start --web\"",
     "web:sheets:all:unix": "EXPO_PUBLIC_SHEETS_SALES_URL=https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec EXPO_PUBLIC_SHEETS_PRODUCTS_URL=https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec EXPO_PUBLIC_SHEETS_DUES_URL=https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec EXPO_PUBLIC_SHEETS_PRODUCTS_GET_URL=https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec?type=products EXPO_PUBLIC_SHEETS_SALES_GET_URL=https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec?type=sales expo start --web",
     "web:sheets:all:win": "powershell -NoProfile -Command \"$Env:EXPO_PUBLIC_SHEETS_SALES_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec'; $Env:EXPO_PUBLIC_SHEETS_PRODUCTS_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec'; $Env:EXPO_PUBLIC_SHEETS_DUES_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec'; $Env:EXPO_PUBLIC_SHEETS_PRODUCTS_GET_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec?type=products'; $Env:EXPO_PUBLIC_SHEETS_SALES_GET_URL='https://script.google.com/macros/s/AKfycbyir4OHv6NowNgiML5gA4fjUVyUhz1hj9DggjrhFL92jATI43GHRJLXWyh821kxnhfz9Q/exec?type=sales'; expo start --web\""
   },
@@ -29,8 +28,8 @@
     "@react-navigation/native": "^6.1.18",
     "expo": "~51.0.0",
     "expo-file-system": "~17.0.1",
-    "expo-sharing": "~12.0.1",
     "expo-print": "~13.0.0",
+    "expo-sharing": "~12.0.1",
     "expo-status-bar": "~1.12.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",
@@ -42,6 +41,7 @@
     "react-native-web": "~0.19.10"
   },
   "devDependencies": {
+    "@types/node": "^24.9.1",
     "@types/react": "18.2.66",
     "@types/react-native": "0.73.0",
     "babel-preset-expo": "^10.0.0",
