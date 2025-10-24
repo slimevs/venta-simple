@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Product } from '../models/Product';
-import { KEYS, getJSON, setJSON } from '../storage';
+// Almacenamiento local removido: solo se usa Google Sheets
 import { uuid } from '../utils/uuid';
 import { fetchProductChangesFromSheets, reduceProductChanges } from '../services/sheets';
 import { sendProductChangeToSheets } from '../services/sheets';
@@ -21,30 +21,16 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const data = await getJSON<any[]>(KEYS.PRODUCTS, []);
-      // Migración: asegurar campo unit con valor por defecto 'unit'
-      const migrated: Product[] = (data || []).map((it: any) => ({
-        id: it.id,
-        name: it.name,
-        price: Number(it.price ?? 0),
-        stock: Number(it.stock ?? 0),
-        unit: (it.unit === 'kg' || it.unit === 'unit') ? it.unit : 'unit',
-        createdAt: Number(it.createdAt ?? Date.now()),
-        updatedAt: it.updatedAt ? Number(it.updatedAt) : undefined,
-      }));
-      setProducts(migrated);
-      // Intentar sincronizar desde Sheets si hay endpoint de lectura configurado
+      // Cargar productos únicamente desde Google Sheets (si está configurado)
       const changes = await fetchProductChangesFromSheets();
       if (changes && changes.length) {
         const next = reduceProductChanges(changes);
         setProducts(next);
+      } else {
+        setProducts([]);
       }
     })();
   }, []);
-
-  useEffect(() => {
-    setJSON(KEYS.PRODUCTS, products);
-  }, [products]);
 
   const api = useMemo<ProductsCtx>(() => ({
     products,

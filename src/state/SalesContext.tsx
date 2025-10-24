@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Sale } from '../models/Sale';
-import { KEYS, getJSON, setJSON } from '../storage';
+// Almacenamiento local removido: solo se usa Google Sheets
 import { uuid } from '../utils/uuid';
 import { useProducts } from './ProductsContext';
 import { sendSaleToSheets, sendDueSaleToSheets, sendDueClearToSheets, fetchSalesFromSheets, sendDueDeleteToSheets } from '../services/sheets';
@@ -21,30 +21,17 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const data = await getJSON<any[]>(KEYS.SALES, []);
-      // Migración: asegurar department como número
-      const migrated: Sale[] = (data || []).map((s: any) => ({
-        ...s,
-        department: typeof s?.department === 'number' ? s.department : parseInt(String(s?.department ?? '0'), 10) || 0,
-        paymentStatus: String(s?.paymentStatus || 'pagado').toLowerCase() === 'parcial'
-          ? 'pendiente'
-          : (String(s?.paymentStatus || 'pagado').toLowerCase() === 'pendiente' ? 'pendiente' : 'pagado'),
-        paymentType: ((): 'efectivo' | 'transferencia' => {
-          const t = String((s as any)?.paymentType || '').toLowerCase();
-          return t === 'transferencia' ? 'transferencia' : 'efectivo';
-        })(),
-      }));
-      setSales(migrated);
+      // Cargar únicamente desde Google Sheets
       const remote = await fetchSalesFromSheets();
       if (remote && remote.length) {
         setSales(remote);
+      } else {
+        setSales([]);
       }
     })();
   }, []);
 
-  useEffect(() => {
-    setJSON(KEYS.SALES, sales);
-  }, [sales]);
+  // Persistencia local removida
 
   const api = useMemo<SalesCtx>(() => ({
     sales,
