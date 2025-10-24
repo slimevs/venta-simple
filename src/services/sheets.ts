@@ -7,6 +7,7 @@ type SendSalePayload = {
   date: string;
   department: number | string;
   paymentStatus: string;
+  paymentType?: string;
   total: number;
   items: Array<{
     productId: string;
@@ -25,6 +26,7 @@ export async function sendSaleToSheets(sale: Sale, products: Product[]): Promise
     date: new Date(sale.createdAt).toISOString(),
     department: sale.department || '',
     paymentStatus: sale.paymentStatus,
+    paymentType: sale.paymentType,
     total: sale.total,
     items: sale.items.map((it) => {
       const p = products.find((x) => x.id === it.productId);
@@ -91,6 +93,7 @@ export async function sendDueSaleToSheets(sale: Sale, products: Product[]): Prom
     date: new Date(sale.createdAt).toISOString(),
     department: sale.department || '',
     paymentStatus: sale.paymentStatus,
+    paymentType: sale.paymentType,
     total: sale.total,
     items: sale.items.map((it) => {
       const p = products.find((x) => x.id === it.productId);
@@ -182,7 +185,8 @@ export type RemoteSale = {
   id: string;
   date: string | number; // ISO string o timestamp
   department: number | string;
-  paymentStatus: 'pagado' | 'pendiente' | 'parcial' | string;
+  paymentStatus: 'pagado' | 'pendiente' | string;
+  paymentType?: 'efectivo' | 'transferencia' | string;
   total: number;
   items: RemoteSaleItem[];
 };
@@ -197,7 +201,16 @@ export async function fetchSalesFromSheets(): Promise<import('../models/Sale').S
       id: String(r.id),
       createdAt: typeof r.date === 'number' ? r.date : new Date(String(r.date)).getTime(),
       department: typeof r.department === 'number' ? r.department : parseInt(String(r.department || '0'), 10) || 0,
-      paymentStatus: (String(r.paymentStatus || 'pagado') as any),
+      paymentStatus: ((() => {
+        const raw = String(r.paymentStatus || 'pagado').toLowerCase();
+        if (raw === 'pendiente') return 'pendiente';
+        if (raw === 'parcial') return 'pendiente';
+        return 'pagado';
+      })() as any),
+      paymentType: ((() => {
+        const t = String((r as any).paymentType || '').toLowerCase();
+        return t === 'transferencia' ? 'transferencia' : 'efectivo';
+      })() as any),
       total: Number(r.total || 0),
       items: (r.items || []).map((it) => ({
         productId: String(it.productId || ''),
@@ -247,4 +260,15 @@ function fetchJSONP(url: string, timeoutMs = 6000): Promise<any | null> {
     }
     document.head.appendChild(script);
   });
+}
+
+// Eliminar venta por cobrar en Google Sheets
+export async function sendDueDeleteToSheets(saleId: string): Promise<void> {
+  const url = SHEETS_DUES_URL || SHEETS_SALES_URL;
+  if (!url) return;
+  try {
+    await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ dueDelete: true, id: saleId }) });
+  } catch (err) {
+    console.warn('[sheets] Falló eliminar venta por cobrar en Google Sheets:', err);
+  }
 }

@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Sale } from '../models/Sale';
-import { KEYS, getJSON, setJSON } from '../storage';
+// Almacenamiento local removido: solo se usa Google Sheets
 import { uuid } from '../utils/uuid';
 import { useProducts } from './ProductsContext';
-import { sendSaleToSheets, sendDueSaleToSheets, sendDueClearToSheets, fetchSalesFromSheets } from '../services/sheets';
+import { sendSaleToSheets, sendDueSaleToSheets, sendDueClearToSheets, fetchSalesFromSheets, sendDueDeleteToSheets } from '../services/sheets';
 
 type SalesCtx = {
   sales: Sale[];
@@ -21,23 +21,17 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const data = await getJSON<any[]>(KEYS.SALES, []);
-      // Migración: asegurar department como número
-      const migrated: Sale[] = (data || []).map((s: any) => ({
-        ...s,
-        department: typeof s?.department === 'number' ? s.department : parseInt(String(s?.department ?? '0'), 10) || 0,
-      }));
-      setSales(migrated);
+      // Cargar únicamente desde Google Sheets
       const remote = await fetchSalesFromSheets();
       if (remote && remote.length) {
         setSales(remote);
+      } else {
+        setSales([]);
       }
     })();
   }, []);
 
-  useEffect(() => {
-    setJSON(KEYS.SALES, sales);
-  }, [sales]);
+  // Persistencia local removida
 
   const api = useMemo<SalesCtx>(() => ({
     sales,
@@ -65,7 +59,25 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
       })();
     },
     remove(id) {
-      setSales((prev) => prev.filter((s) => s.id !== id));
+      setSales((prev) => {
+        const toRemove = prev.find((s) => s.id === id);
+        if (toRemove) {
+          (async () => {
+            // Si es pendiente, eliminar de PorCobrar en Sheets
+            if (toRemove.paymentStatus !== 'pagado') {
+              await sendDueDeleteToSheets(toRemove.id);
+            }
+          })();
+          // Restaurar stock de los productos de la venta
+          for (const item of toRemove.items) {
+            const prod = products.find((p) => p.id === item.productId);
+            if (prod) {
+              updateProduct(prod.id, { stock: prod.stock + item.quantity });
+            }
+          }
+        }
+        return prev.filter((s) => s.id !== id);
+      });
     },
     update(id, changes) {
       setSales((prev) => {
