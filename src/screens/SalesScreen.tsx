@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Alert, FlatList, Pressable, Text, TextInput, View, ScrollView, Platform } from 'react-native';
+import { Alert, FlatList, Pressable, Text, TextInput, View, ScrollView, Platform, Modal } from 'react-native';
 import { useProducts } from '../state/ProductsContext';
 import { useSales } from '../state/SalesContext';
 import { Button, Field, Title, styles } from '../components/Common';
@@ -26,6 +26,7 @@ export function SalesScreen() {
   const [department, setDepartment] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<'pagado' | 'pendiente'>('pagado');
   const [qtyError, setQtyError] = useState<string | null>(null);
+  const [detailSale, setDetailSale] = useState<import('../models/Sale').Sale | null>(null);
   const [deptError, setDeptError] = useState<string | null>(null);
   const [paymentType, setPaymentType] = useState<'efectivo' | 'transferencia'>('efectivo');
   const [productError, setProductError] = useState<boolean>(false);
@@ -279,7 +280,10 @@ export function SalesScreen() {
               </View>
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                 <View style={{ flex: 1 }}>
-                  <Button title="Marcar Pagado" onPress={() => { update(s.id, { paymentStatus: 'pagado' }); toast.show('Venta marcada como pagada', { type: 'success' }); }} />
+                  <Button title="Pagado" onPress={() => { update(s.id, { paymentStatus: 'pagado' }); toast.show('Venta marcada como pagada', { type: 'success' }); }} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button title="Ver detalle" variant="secondary" onPress={() => setDetailSale(s)} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Button
@@ -312,6 +316,51 @@ export function SalesScreen() {
         />
       </View>
       </ScrollView>
+      {/* Modal Detalle Venta */}
+      <Modal
+        visible={!!detailSale}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDetailSale(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+          <View style={{ backgroundColor: 'white', borderRadius: 12, padding: 16, width: '100%', maxWidth: 520 }}>
+            <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>Detalle de venta</Text>
+            {detailSale && (
+              <View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text style={styles.small}>{new Date(detailSale.createdAt).toLocaleString()}</Text>
+                  <Text style={styles.small}>Total: {formatCLP(detailSale.total)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text style={styles.small}>Depto: {typeof detailSale.department === 'number' ? detailSale.department : '-'}</Text>
+                  <Text style={[styles.small, { textTransform: 'capitalize' }]}>Pago: {detailSale.paymentType}</Text>
+                </View>
+                <View style={{ maxHeight: 260 }}>
+                  <FlatList
+                    data={detailSale.items}
+                    keyExtractor={(i) => i.productId}
+                    renderItem={({ item }) => {
+                      const p = products.find((x) => x.id === item.productId);
+                      return (
+                        <View style={[styles.row, { marginBottom: 6 }]}>
+                          <Text>{p?.name ?? item.productId} x {item.quantity}{p?.unit === 'kg' ? ' kg' : ''}</Text>
+                          <Text>{formatCLP(item.subtotal)}</Text>
+                        </View>
+                      );
+                    }}
+                  />
+                </View>
+              </View>
+            )}
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Button title="Cerrar" variant="secondary" onPress={() => setDetailSale(null)} />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <FloatingScrollTop visible={showTop} onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />
     </View>
   );
