@@ -231,8 +231,26 @@ async function fetchJSONWithCORS(url: string): Promise<any | null> {
   try {
     const res = await fetch(url, { method: 'GET' });
     if ((res as any).type === 'opaque') throw new Error('opaque');
-    return await (res as any).json();
+    if (!(res as any).ok) {
+      let bodySnippet = '';
+      try {
+        bodySnippet = (await (res as any).text()).slice(0, 300);
+      } catch {}
+      console.warn('[sheets] HTTP error', (res as any).status, (res as any).statusText, 'for', url, '\n', bodySnippet);
+      throw new Error('http-' + (res as any).status);
+    }
+    try {
+      return await (res as any).json();
+    } catch (e) {
+      let bodySnippet = '';
+      try {
+        bodySnippet = (await (res as any).text()).slice(0, 300);
+      } catch {}
+      console.warn('[sheets] JSON parse failed for', url, '\n', bodySnippet);
+      throw e;
+    }
   } catch (_) {
+    // Intento JSONP como alternativa (requiere soporte del backend)
     return await fetchJSONP(url);
   }
 }

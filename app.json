@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "venta-simple",
+    "slug": "venta-simple",
+    "version": "0.1.0",
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
