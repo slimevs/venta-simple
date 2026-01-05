@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react';
-import { FlatList, Text, TextInput, View, ScrollView, Modal } from 'react-native';
+import { Alert, FlatList, Text, TextInput, View, ScrollView, Modal, Platform } from 'react-native';
 import { useProducts } from '../state/ProductsContext';
 import { Button, Field, Title, styles } from '../components/Common';
 import { FloatingScrollTop } from '../components/FloatingScrollTop';
@@ -104,6 +104,30 @@ export function ProductsScreen() {
     setFormOpen(true);
   }, []);
 
+  const handleDelete = useCallback((id: string) => {
+    if (Platform.OS === 'web') {
+      const ok = typeof window !== 'undefined' && typeof (window as any).confirm === 'function'
+        ? (window as any).confirm('¿Deseas eliminar este producto?')
+        : true;
+      if (ok) {
+        remove(id);
+        toast.show('Producto eliminado', { type: 'success' });
+      }
+      return;
+    }
+    Alert.alert('Eliminar producto', '¿Deseas eliminar este producto?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: () => {
+          remove(id);
+          toast.show('Producto eliminado', { type: 'success' });
+        },
+      },
+    ]);
+  }, [remove, toast]);
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
@@ -164,7 +188,7 @@ export function ProductsScreen() {
               <Text style={styles.small}>Precio: {formatCLP(item.price)} {item.unit === 'kg' ? '/kg' : ''}</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Button title="Editar" variant="secondary" onPress={() => openEdit(item)} />
-                <Button title="Borrar" variant="danger" onPress={() => remove(item.id)} />
+                <Button title="Borrar" variant="danger" onPress={() => handleDelete(item.id)} />
               </View>
             </View>
           </View>
