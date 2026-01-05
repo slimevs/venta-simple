@@ -1,5 +1,5 @@
-import React, { useMemo, useRef, useState, useCallback } from 'react';
-import { FlatList, Text, TextInput, View, ScrollView } from 'react-native';
+import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react';
+import { FlatList, Text, TextInput, View, ScrollView, Modal } from 'react-native';
 import { useProducts } from '../state/ProductsContext';
 import { Button, Field, Title, styles } from '../components/Common';
 import { FloatingScrollTop } from '../components/FloatingScrollTop';
@@ -18,16 +18,33 @@ export function ProductsScreen() {
   const [stock, setStock] = useState('');
   const [unit, setUnit] = useState<Product['unit']>('unit');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
   const [nameError, setNameError] = useState<string | null>(null);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [stockError, setStockError] = useState<string | null>(null);
+  const pageSize = 5;
 
   const filtered = useMemo(() => {
     if (!query.trim()) return products;
     const q = query.toLowerCase();
     return products.filter((p) => p.name.toLowerCase().includes(q));
   }, [products, query]);
+
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(filtered.length / pageSize)), [filtered.length, pageSize]);
+  const paged = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, products.length]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const resetForm = useCallback(() => {
     setName('');
@@ -38,6 +55,7 @@ export function ProductsScreen() {
     setNameError(null);
     setPriceError(null);
     setStockError(null);
+    setFormOpen(false);
   }, []);
 
   const onSubmit = useCallback(() => {
@@ -61,6 +79,30 @@ export function ProductsScreen() {
     }
     resetForm();
   }, [name, price, stock, unit, editingId, update, add, toast, resetForm]);
+
+  const openNew = useCallback(() => {
+    setEditingId(null);
+    setName('');
+    setPrice('');
+    setStock('');
+    setUnit('unit');
+    setNameError(null);
+    setPriceError(null);
+    setStockError(null);
+    setFormOpen(true);
+  }, []);
+
+  const openEdit = useCallback((item: Product) => {
+    setEditingId(item.id);
+    setName(item.name);
+    setPrice(String(item.price));
+    setStock(String(item.stock));
+    setUnit((item as any).unit ?? 'unit');
+    setNameError(null);
+    setPriceError(null);
+    setStockError(null);
+    setFormOpen(true);
+  }, []);
 
   return (
     <View style={{ flex: 1 }}>
@@ -95,83 +137,22 @@ export function ProductsScreen() {
         />
       </View>
 
-      <View style={[styles.card, { marginBottom: 16 }] }>
-        <Text style={{ fontWeight: '700', marginBottom: 8 }}>{editingId ? 'Editar producto' : 'Nuevo producto'}</Text>
-        <Field label="Nombre" value={name} onChangeText={(t) => { setName(t); if (nameError) setNameError(null); }} placeholder="Ej. Manzana" error={nameError} />
-        <Text style={[styles.label, { marginBottom: 6 }]}>Unidad</Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-          {[
-            { key: 'unit', label: 'Unitario' },
-            { key: 'kg', label: 'Kg' },
-          ].map((opt) => (
-            <TextInput
-              key={opt.key}
-              editable={false}
-              value={opt.label}
-              style={{
-                paddingVertical: 6,
-                paddingHorizontal: 10,
-                borderRadius: 6,
-                borderWidth: 1,
-                borderColor: unit === (opt.key as any) ? '#1d4ed8' : '#d1d5db',
-                backgroundColor: unit === (opt.key as any) ? '#dbeafe' : 'white',
-                color: '#111827',
-                textAlign: 'center',
-                minWidth: 90,
-              }}
-              onTouchStart={() => setUnit(opt.key as Product['unit'])}
-            />
-          ))}
-        </View>
-        <Field label={unit === 'kg' ? 'Precio por kg' : 'Precio unitario'} value={price} onChangeText={(t) => { setPrice(t); if (priceError) setPriceError(null); }} placeholder="Ej. 12.50" keyboardType="numeric" error={priceError} />
-        <Field
-          label={unit === 'kg' ? 'Stock (kg)' : 'Stock (u)'}
-          value={stock}
-          onChangeText={(t) => {
-            let next = t;
-            if (unit === 'kg') {
-              next = next.replace(',', '.');
-              next = next.replace(/[^\d.]/g, '');
-              const firstDot = next.indexOf('.');
-              if (firstDot !== -1) {
-                next = next.slice(0, firstDot + 1) + next.slice(firstDot + 1).replace(/\./g, '');
-              }
-            } else {
-              next = next.replace(/\D/g, '');
-            }
-            setStock(next);
-            if (stockError) setStockError(null);
-          }}
-          placeholder={unit === 'kg' ? 'Ej. 10.5' : 'Ej. 100'}
-          keyboardType={unit === 'kg' ? 'decimal-pad' : 'numeric'}
-          error={stockError}
-        />
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <View style={{ flex: 1 }}>
-            <Button
-              title={editingId ? 'Guardar cambios' : 'Agregar'}
-              onPress={onSubmit}
-              disabled={
-                !name.trim() ||
-                isNaN(parseFloat(price)) || parseFloat(price) <= 0 ||
-                (unit === 'kg' ? isNaN(parseFloat(stock || '')) : isNaN(parseInt(stock || '0', 10))) ||
-                (unit === 'kg' ? (parseFloat(stock || '0') < 0) : (parseInt(stock || '0', 10) < 0)) ||
-                !!nameError || !!priceError || !!stockError
-              }
-            />
-          </View>
-          {editingId && (
-            <View style={{ flex: 1 }}>
-              <Button title="Cancelar" variant="secondary" onPress={resetForm} />
-            </View>
-          )}
-        </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+        <Button title="Nuevo producto" onPress={openNew} />
       </View>
 
       <TextInput value={query} onChangeText={setQuery} placeholder="Buscar producto" style={[styles.input, { marginBottom: 8 }]} />
 
+      <View style={[styles.row, { marginBottom: 8 }]}>
+        <Text style={styles.small}>Pagina {page} de {totalPages}</Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Button title="Anterior" variant="secondary" onPress={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} />
+          <Button title="Siguiente" variant="secondary" onPress={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} />
+        </View>
+      </View>
+
       <FlatList
-        data={filtered}
+        data={paged}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={styles.card}>
@@ -182,13 +163,7 @@ export function ProductsScreen() {
             <View style={styles.row}>
               <Text style={styles.small}>Precio: {formatCLP(item.price)} {item.unit === 'kg' ? '/kg' : ''}</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Button title="Editar" variant="secondary" onPress={() => {
-                  setEditingId(item.id);
-                  setName(item.name);
-                  setPrice(String(item.price));
-                  setStock(String(item.stock));
-                  setUnit((item as any).unit ?? 'unit');
-                }} />
+                <Button title="Editar" variant="secondary" onPress={() => openEdit(item)} />
                 <Button title="Borrar" variant="danger" onPress={() => remove(item.id)} />
               </View>
             </View>
@@ -196,12 +171,93 @@ export function ProductsScreen() {
         )}
         scrollEnabled={false}
         removeClippedSubviews={true}
-        initialNumToRender={15}
-        maxToRenderPerBatch={15}
+        initialNumToRender={5}
+        maxToRenderPerBatch={5}
         updateCellsBatchingPeriod={50}
         ListEmptyComponent={<Text style={styles.small}>No hay productos aún</Text>}
       />
       </ScrollView>
+      <Modal
+        visible={formOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFormOpen(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+          <View style={{ backgroundColor: 'white', borderRadius: 12, padding: 16, width: '100%', maxWidth: 520 }}>
+            <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 12 }}>
+              {editingId ? 'Editar producto' : 'Nuevo producto'}
+            </Text>
+            <Field label="Nombre" value={name} onChangeText={(t) => { setName(t); if (nameError) setNameError(null); }} placeholder="Ej. Manzana" error={nameError} />
+            <Text style={[styles.label, { marginBottom: 6 }]}>Unidad</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+              {[
+                { key: 'unit', label: 'Unitario' },
+                { key: 'kg', label: 'Kg' },
+              ].map((opt) => (
+                <TextInput
+                  key={opt.key}
+                  editable={false}
+                  value={opt.label}
+                  style={{
+                    paddingVertical: 6,
+                    paddingHorizontal: 10,
+                    borderRadius: 6,
+                    borderWidth: 1,
+                    borderColor: unit === (opt.key as any) ? '#1d4ed8' : '#d1d5db',
+                    backgroundColor: unit === (opt.key as any) ? '#dbeafe' : 'white',
+                    color: '#111827',
+                    textAlign: 'center',
+                    minWidth: 90,
+                  }}
+                  onTouchStart={() => setUnit(opt.key as Product['unit'])}
+                />
+              ))}
+            </View>
+            <Field label={unit === 'kg' ? 'Precio por kg' : 'Precio unitario'} value={price} onChangeText={(t) => { setPrice(t); if (priceError) setPriceError(null); }} placeholder="Ej. 12.50" keyboardType="numeric" error={priceError} />
+            <Field
+              label={unit === 'kg' ? 'Stock (kg)' : 'Stock (u)'}
+              value={stock}
+              onChangeText={(t) => {
+                let next = t;
+                if (unit === 'kg') {
+                  next = next.replace(',', '.');
+                  next = next.replace(/[^\d.]/g, '');
+                  const firstDot = next.indexOf('.');
+                  if (firstDot !== -1) {
+                    next = next.slice(0, firstDot + 1) + next.slice(firstDot + 1).replace(/\./g, '');
+                  }
+                } else {
+                  next = next.replace(/\D/g, '');
+                }
+                setStock(next);
+                if (stockError) setStockError(null);
+              }}
+              placeholder={unit === 'kg' ? 'Ej. 10.5' : 'Ej. 100'}
+              keyboardType={unit === 'kg' ? 'decimal-pad' : 'numeric'}
+              error={stockError}
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title={editingId ? 'Guardar cambios' : 'Agregar'}
+                  onPress={onSubmit}
+                  disabled={
+                    !name.trim() ||
+                    isNaN(parseFloat(price)) || parseFloat(price) <= 0 ||
+                    (unit === 'kg' ? isNaN(parseFloat(stock || '')) : isNaN(parseInt(stock || '0', 10))) ||
+                    (unit === 'kg' ? (parseFloat(stock || '0') < 0) : (parseInt(stock || '0', 10) < 0)) ||
+                    !!nameError || !!priceError || !!stockError
+                  }
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button title="Cancelar" variant="secondary" onPress={resetForm} />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <FloatingScrollTop visible={showTop} onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />
     </View>
   );
