@@ -33,6 +33,24 @@ Persistencia de datos: la aplicación usa **Google Sheets** como mecanismo princ
    - iOS: `npm run ios`
    - Web: `npm run web`
 
+## Configuracion local (Sheets)
+
+Para usar una sheet distinta cuando ejecutas local:
+
+1. Crea un archivo `.env.local` (no se versiona) con tus URLs locales:
+
+```
+EXPO_PUBLIC_SHEETS_SALES_URL=...
+EXPO_PUBLIC_SHEETS_PRODUCTS_URL=...
+EXPO_PUBLIC_SHEETS_DUES_URL=...
+EXPO_PUBLIC_SHEETS_PRODUCTS_GET_URL=...
+EXPO_PUBLIC_SHEETS_SALES_GET_URL=...
+```
+
+2. Expo CLI carga `.env.local` automaticamente al ejecutar `npm run start` o `npm run web`.
+
+Tambien se incluye `.env.example` como plantilla.
+
 ### Scripts de conveniencia para Google Sheets
 
 - macOS/Linux:
@@ -89,7 +107,7 @@ Se agregó una pantalla dedicada a gestionar las ventas pendientes (deudas):
 - Resumen del total por cobrar y número de deudas.
 - Filtros por departamento y tipo de pago (efectivo/transferencia).
 - Ordenamiento por fecha o monto.
-- Acciones por deuda: marcar como cobrada, ver detalle (modal) y eliminar (restaurando stock).
+- Acciones por deuda: marcar como cobrada (elige metodo de pago), ver detalle (modal) y eliminar (restaurando stock).
 
 La nueva pantalla está en `src/screens/DuesScreen.tsx` y aparece como la pestaña "Por Cobrar" en la navegación.
 
@@ -99,7 +117,8 @@ La nueva pantalla está en `src/screens/DuesScreen.tsx` y aparece como la pesta�
   - Soporta productos unitarios y por kilogramo (kg). El precio se interpreta por unidad o por kg según selección, y el stock acepta decimales si es por kg.
 - Ventas: agrega productos a la venta, valida stock y guarda; el stock se descuenta automáticamente.
   - Campos adicionales: departamento y estado de pago (pagado/pendiente).
-  - Sección “Ventas por cobrar”: lista ventas en estado pendiente y permite actualizar su estado a pagado/pendiente.
+  - Sección “Ventas por cobrar”: lista ventas en estado pendiente y permite actualizar su estado a pagado/pendiente con método de pago.
+  - Cantidad en ventas: si el producto es por kg, permite decimales (ej. 1.25).
 - Reportes: resumen de ingresos y unidades, top productos y gráfico simple por día.
   - Filtros por rango de fechas (campos Desde/Hasta y accesos rápidos 7/30 días).
   - Botón “Exportar CSV”: genera un CSV y lo comparte (o guarda en caché si no hay mecanismo de compartir disponible).

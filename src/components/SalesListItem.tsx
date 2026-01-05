@@ -6,7 +6,7 @@ import { formatCLP } from '../utils/currency';
 
 interface SalesListItemProps {
   sale: Sale;
-  onMarkAsPaid: (id: string) => void;
+  onMarkAsPaid: (sale: Sale) => void;
   onViewDetail: (sale: Sale) => void;
   onDelete: (id: string) => void;
 }
@@ -49,7 +49,7 @@ export const SalesListItem = React.memo(function SalesListItem({
 
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <View style={{ flex: 1 }}>
-          <Button title="Cobrado" onPress={() => onMarkAsPaid(sale.id)} />
+          <Button title="Cobrado" onPress={() => onMarkAsPaid(sale)} />
         </View>
         <View style={{ flex: 1 }}>
           <Button title="Detalle" variant="secondary" onPress={() => onViewDetail(sale)} />

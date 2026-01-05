@@ -16,6 +16,8 @@ export function DuesScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const [showTop, setShowTop] = useState(false);
   const [detailSale, setDetailSale] = useState<Sale | null>(null);
+  const [paySale, setPaySale] = useState<Sale | null>(null);
+  const [payType, setPayType] = useState<'efectivo' | 'transferencia'>('efectivo');
   const [filterDept, setFilterDept] = useState('');
   const [filterPaymentType, setFilterPaymentType] = useState<'todas' | 'efectivo' | 'transferencia'>('todas');
   const [sortBy, setSortBy] = useState<'fecha' | 'total'>('fecha');
@@ -50,10 +52,17 @@ export function DuesScreen() {
 
   const totalDue = useMemo(() => filtered.reduce((acc, s) => acc + s.total, 0), [filtered]);
 
-  const handleMarkAsPaid = useCallback((saleId: string) => {
-    update(saleId, { paymentStatus: 'pagado' });
+  const handleMarkAsPaid = useCallback((sale: Sale) => {
+    setPaySale(sale);
+    setPayType(sale.paymentType || 'efectivo');
+  }, []);
+
+  const confirmMarkAsPaid = useCallback(() => {
+    if (!paySale) return;
+    update(paySale.id, { paymentStatus: 'pagado', paymentType: payType });
     toast.show('Venta marcada como pagada', { type: 'success' });
-  }, [update, toast]);
+    setPaySale(null);
+  }, [paySale, payType, update, toast]);
 
   const handleDelete = useCallback((saleId: string) => {
     if (Platform.OS === 'web') {
@@ -281,7 +290,7 @@ export function DuesScreen() {
                   title="Cobrado"
                   onPress={() => {
                     if (detailSale) {
-                      handleMarkAsPaid(detailSale.id);
+                      handleMarkAsPaid(detailSale);
                       setDetailSale(null);
                     }
                   }}
@@ -289,6 +298,52 @@ export function DuesScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Button title="Cerrar" variant="secondary" onPress={() => setDetailSale(null)} />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Cobro */}
+      <Modal
+        visible={!!paySale}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPaySale(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+          <View style={{ backgroundColor: 'white', borderRadius: 12, padding: 16, width: '100%', maxWidth: 420 }}>
+            <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 12 }}>Metodo de pago</Text>
+            <Text style={[styles.label, { marginBottom: 8 }]}>
+              Selecciona el metodo con el que se pago la venta
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+              {[
+                { key: 'efectivo', label: 'Efectivo' },
+                { key: 'transferencia', label: 'Transferencia' },
+              ].map((opt) => (
+                <Pressable
+                  key={opt.key}
+                  onPress={() => setPayType(opt.key as any)}
+                  style={{
+                    paddingVertical: 6,
+                    paddingHorizontal: 10,
+                    borderRadius: 6,
+                    borderWidth: 1,
+                    borderColor: payType === opt.key ? '#1d4ed8' : '#d1d5db',
+                    backgroundColor: payType === opt.key ? '#dbeafe' : 'white',
+                  }}
+                >
+                  <Text style={{ color: '#111827' }}>{opt.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Button title="Confirmar" onPress={confirmMarkAsPaid} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button title="Cancelar" variant="secondary" onPress={() => setPaySale(null)} />
               </View>
             </View>
           </View>
