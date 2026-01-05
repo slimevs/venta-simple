@@ -12,3 +12,8 @@ export function formatCLP(value: number): string {
   }
 }
 
+export function formatNumber2(value: number): string {
+  if (!isFinite(value)) return '0.00';
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+  return rounded.toFixed(2);
+}
