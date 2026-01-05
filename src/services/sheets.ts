@@ -23,7 +23,7 @@ export async function sendSaleToSheets(sale: Sale, products: Product[]): Promise
   if (!SHEETS_SALES_URL) return; // no configurado, no envía
   const payload: SendSalePayload = {
     id: sale.id,
-    date: new Date(sale.createdAt).toISOString(),
+    date: formatISOWithOffset(new Date(sale.createdAt)),
     department: sale.department || '',
     paymentStatus: sale.paymentStatus,
     paymentType: sale.paymentType,
@@ -63,7 +63,7 @@ type ProductChange = {
 export async function sendProductChangeToSheets(change: ProductChange): Promise<void> {
   if (!SHEETS_PRODUCTS_URL) return;
   const payload = {
-    date: new Date().toISOString(),
+    date: formatISOWithOffset(new Date()),
     action: change.action,
     id: change.product.id,
     name: change.product.name,
@@ -90,7 +90,7 @@ export async function sendDueSaleToSheets(sale: Sale, products: Product[]): Prom
   const payload = {
     due: true,
     id: sale.id,
-    date: new Date(sale.createdAt).toISOString(),
+    date: formatISOWithOffset(new Date(sale.createdAt)),
     department: sale.department || '',
     paymentStatus: sale.paymentStatus,
     paymentType: sale.paymentType,
@@ -122,6 +122,21 @@ export async function sendDueClearToSheets(saleId: string): Promise<void> {
   } catch (err) {
     console.warn('[sheets] Falló limpiar PorCobrar en Google Sheets:', err);
   }
+}
+
+function formatISOWithOffset(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const y = date.getFullYear();
+  const m = pad(date.getMonth() + 1);
+  const d = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+  const ss = pad(date.getSeconds());
+  const off = -date.getTimezoneOffset();
+  const sign = off >= 0 ? '+' : '-';
+  const offH = pad(Math.floor(Math.abs(off) / 60));
+  const offM = pad(Math.abs(off) % 60);
+  return `${y}-${m}-${d}T${hh}:${mm}:${ss}${sign}${offH}:${offM}`;
 }
 
 // Lectura opcional desde Sheets

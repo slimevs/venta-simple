@@ -1,9 +1,9 @@
-import React, { useMemo, useState, useCallback, useRef } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { Alert, FlatList, Text, View, Platform, ScrollView, Pressable, Modal } from 'react-native';
 import { useSales } from '../state/SalesContext';
 import { useProducts } from '../state/ProductsContext';
 import { Button, Title, styles, Field } from '../components/Common';
-import { formatCLP } from '../utils/currency';
+import { formatCLP, formatNumber2 } from '../utils/currency';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
@@ -32,6 +32,8 @@ export function ReportsScreen() {
   const [prodDropdown, setProdDropdown] = useState(false);
   const [prodFilter, setProdFilter] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [productPayPage, setProductPayPage] = useState(1);
+  const [departmentPage, setDepartmentPage] = useState(1);
   const isWeb = Platform.OS === 'web';
   const useNativePicker = Platform.OS === 'android' || Platform.OS === 'ios';
 
@@ -72,7 +74,12 @@ export function ReportsScreen() {
       .map(([productId, qty]) => ({ productId, qty }))
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 5)
-      .map((x) => ({ name: products.find((p) => p.id === x.productId)?.name ?? 'Desconocido', qty: x.qty }));
+      .map((x) => ({
+        productId: x.productId,
+        name: products.find((p) => p.id === x.productId)?.name ?? 'Desconocido',
+        unit: products.find((p) => p.id === x.productId)?.unit ?? '',
+        qty: x.qty,
+      }));
 
     // Últimos N días
     const now = new Date();
@@ -166,6 +173,24 @@ export function ReportsScreen() {
     return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue);
   }, [filteredSales, products]);
 
+  const productPayPageSize = 10;
+  const productPayTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(productPaymentSummary.length / productPayPageSize)),
+    [productPaymentSummary.length]
+  );
+  const productPayPageItems = useMemo(() => {
+    const start = (productPayPage - 1) * productPayPageSize;
+    return productPaymentSummary.slice(start, start + productPayPageSize);
+  }, [productPaymentSummary, productPayPage]);
+
+  useEffect(() => {
+    setProductPayPage(1);
+  }, [productPaymentSummary.length]);
+
+  useEffect(() => {
+    if (productPayPage > productPayTotalPages) setProductPayPage(productPayTotalPages);
+  }, [productPayPage, productPayTotalPages]);
+
   // Resumen por departamento
   const departmentSummary = useMemo(() => {
     type Agg = {
@@ -204,6 +229,24 @@ export function ReportsScreen() {
     }
     return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue);
   }, [filteredSales]);
+
+  const departmentPageSize = 10;
+  const departmentTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(departmentSummary.length / departmentPageSize)),
+    [departmentSummary.length]
+  );
+  const departmentPageItems = useMemo(() => {
+    const start = (departmentPage - 1) * departmentPageSize;
+    return departmentSummary.slice(start, start + departmentPageSize);
+  }, [departmentSummary, departmentPage]);
+
+  useEffect(() => {
+    setDepartmentPage(1);
+  }, [departmentSummary.length]);
+
+  useEffect(() => {
+    if (departmentPage > departmentTotalPages) setDepartmentPage(departmentTotalPages);
+  }, [departmentPage, departmentTotalPages]);
 
   const openPicker = useCallback((which: 'start' | 'end') => {
     const base = which === 'start' ? parseYMD(startDate) : parseYMD(endDate);
@@ -438,7 +481,7 @@ export function ReportsScreen() {
         </View>
         <FlatList
           scrollEnabled={false}
-          data={productPaymentSummary}
+          data={productPayPageItems}
           keyExtractor={(i) => i.productId}
           removeClippedSubviews={true}
           initialNumToRender={10}
@@ -465,6 +508,15 @@ export function ReportsScreen() {
           )}
           ListEmptyComponent={<Text style={styles.small}>Sin datos en el rango</Text>}
         />
+        {productPayTotalPages > 1 && (
+          <View style={[styles.row, { marginTop: 8 }]}>
+            <Text style={styles.small}>Pagina {productPayPage} de {productPayTotalPages}</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button title="Anterior" variant="secondary" onPress={() => setProductPayPage((p) => Math.max(1, p - 1))} disabled={productPayPage <= 1} />
+              <Button title="Siguiente" variant="secondary" onPress={() => setProductPayPage((p) => Math.min(productPayTotalPages, p + 1))} disabled={productPayPage >= productPayTotalPages} />
+            </View>
+          </View>
+        )}
       </View>
 
       <View style={[styles.card, { marginBottom: 12 }]}>
@@ -520,7 +572,7 @@ export function ReportsScreen() {
         </View>
         <FlatList
           scrollEnabled={false}
-          data={departmentSummary}
+          data={departmentPageItems}
           keyExtractor={(i) => String(i.department)}
           ListHeaderComponent={() => (
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -534,13 +586,22 @@ export function ReportsScreen() {
                 <Text>Depto: {item.department || '-'}</Text>
                 <Text>{formatCLP(item.revenue)}</Text>
               </View>
-              <Text style={styles.small}>Ventas: {item.salesCount} · Cantidad: {item.qty}</Text>
-              <Text style={styles.small}>Pagado: {item.status.pagado.qty} ({formatCLP(item.status.pagado.revenue)}) · Pendiente: {item.status.pendiente.qty} ({formatCLP(item.status.pendiente.revenue)})</Text>
-              <Text style={styles.small}>Efectivo: {item.type.efectivo.qty} ({formatCLP(item.type.efectivo.revenue)}) · Transferencia: {item.type.transferencia.qty} ({formatCLP(item.type.transferencia.revenue)})</Text>
+              <Text style={styles.small}>Ventas: {item.salesCount} · Cantidad: {formatNumber2(item.qty)}</Text>
+              <Text style={styles.small}>Pagado: {formatNumber2(item.status.pagado.qty)} ({formatCLP(item.status.pagado.revenue)}) · Pendiente: {formatNumber2(item.status.pendiente.qty)} ({formatCLP(item.status.pendiente.revenue)})</Text>
+              <Text style={styles.small}>Efectivo: {formatNumber2(item.type.efectivo.qty)} ({formatCLP(item.type.efectivo.revenue)}) · Transferencia: {formatNumber2(item.type.transferencia.qty)} ({formatCLP(item.type.transferencia.revenue)})</Text>
             </View>
           )}
           ListEmptyComponent={<Text style={styles.small}>Sin datos en el rango</Text>}
         />
+        {departmentTotalPages > 1 && (
+          <View style={[styles.row, { marginTop: 8 }]}>
+            <Text style={styles.small}>Pagina {departmentPage} de {departmentTotalPages}</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button title="Anterior" variant="secondary" onPress={() => setDepartmentPage((p) => Math.max(1, p - 1))} disabled={departmentPage <= 1} />
+              <Button title="Siguiente" variant="secondary" onPress={() => setDepartmentPage((p) => Math.min(departmentTotalPages, p + 1))} disabled={departmentPage >= departmentTotalPages} />
+            </View>
+          </View>
+        )}
       </View>
 
       <View style={[styles.card, { marginBottom: 12 }]}>
@@ -660,7 +721,7 @@ export function ReportsScreen() {
 
       <View style={[styles.card, { marginBottom: 12 }]}>
         <Text>Ingresos totales: {formatCLP(summary.revenue)}</Text>
-        <Text>Cantidad total (u/kg): {summary.units}</Text>
+        <Text>Cantidad total (u/kg): {formatNumber2(summary.units)}</Text>
         <View style={{ marginTop: 8 }}>
           <Button title="Exportar CSV" onPress={async () => {
             try {
@@ -792,11 +853,11 @@ export function ReportsScreen() {
         <FlatList
           scrollEnabled={false}
           data={summary.top}
-          keyExtractor={(i) => i.name}
+          keyExtractor={(i) => i.productId}
           renderItem={({ item }) => (
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
               <Text>{item.name}</Text>
-              <Text>{item.qty}</Text>
+              <Text>{item.unit === 'kg' ? formatNumber2(item.qty) : String(Math.round(item.qty))}</Text>
             </View>
           )}
           ListEmptyComponent={<Text style={styles.small}>Sin ventas aún</Text>}
@@ -836,7 +897,7 @@ function buildCSV(sales: Sale[], products: Product[]): string {
   const header = ['fecha', 'departamento', 'estado_pago', 'tipo_pago', 'producto', 'unidad', 'cantidad', 'precio', 'subtotal', 'total_venta'];
   const rows: string[] = [header.join(',')];
   for (const s of sales) {
-    const date = new Date(s.createdAt).toISOString();
+    const date = formatISOWithOffset(new Date(s.createdAt));
     for (const it of s.items) {
       const p = products.find((x) => x.id === it.productId);
       const name = p?.name ?? 'Desconocido';
@@ -1177,7 +1238,7 @@ function buildProductCSV(product: Product, rows: { date: number; quantity: numbe
   const lines: string[] = [header.join(',')];
   for (const r of rows) {
     const cols = [
-      new Date(r.date).toISOString(),
+      formatISOWithOffset(new Date(r.date)),
       r.department || '',
       r.paymentStatus || '',
       r.paymentType || '',
@@ -1236,4 +1297,19 @@ function buildProductReportHTML(product: Product, rows: { date: number; quantity
     </table>
   </body></html>`;
   return html;
+}
+
+function formatISOWithOffset(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const y = date.getFullYear();
+  const m = pad(date.getMonth() + 1);
+  const d = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+  const ss = pad(date.getSeconds());
+  const off = -date.getTimezoneOffset();
+  const sign = off >= 0 ? '+' : '-';
+  const offH = pad(Math.floor(Math.abs(off) / 60));
+  const offM = pad(Math.abs(off) % 60);
+  return `${y}-${m}-${d}T${hh}:${mm}:${ss}${sign}${offH}:${offM}`;
 }
