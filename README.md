@@ -6,7 +6,9 @@ App móvil sencilla para:
 - Gestionar (CRUD) de productos con stock y precio.
 - Ver reportes básicos: ingresos, unidades vendidas, top productos, ventas por día.
 
-La app usa React Navigation (Bottom Tabs) para navegar entre Ventas, Productos y Reportes. Usa almacenamiento local con AsyncStorage si está disponible (con fallback en memoria si no está instalado).
+La app usa React Navigation (Bottom Tabs) para navegar entre `Ventas`, `Por Cobrar`, `Productos` y `Reportes`.
+
+Persistencia de datos: la aplicación usa **Google Sheets** como mecanismo principal de lectura/escritura (integración por defecto). La persistencia local con `AsyncStorage` no está habilitada por defecto; si deseas usarla, instala opcionalmente `@react-native-async-storage/async-storage` y crea una abstracción en `src/storage` para integrarla.
 
 ## Requisitos
 
@@ -71,13 +73,25 @@ Notas:
 
 ## Estructura
 
-- `App.tsx`: Configura React Navigation con tabs (Ventas, Productos, Reportes).
-- `src/models`: Tipos de `Product` y `Sale`.
-- `src/state`: Contextos de productos y ventas (carga/guarda en almacenamiento).
-- `src/storage`: Abstracción para `AsyncStorage` con fallback.
-- `src/screens`: Pantallas de Productos, Ventas y Reportes.
-- `src/components/Common.tsx`: UI reutilizable (botones, inputs, estilos).
-- `docs/google-sheets.md`: Guía para integrarse con Google Sheets.
+ - `App.tsx`: Configura React Navigation con tabs (Ventas, Por Cobrar, Productos, Reportes).
+ - `src/models`: Tipos de `Product` y `Sale`.
+ - `src/state`: Contextos de productos y ventas (carga/guarda — actualmente sincronizados con Google Sheets).
+ - `src/services`: Integraciones externas (por ejemplo, Google Sheets).
+ - `src/screens`: Pantallas de `Ventas`, `Por Cobrar`, `Productos` y `Reportes`.
+ - `src/components/Common.tsx`: UI reutilizable (botones, inputs, estilos).
+
+ - `docs/google-sheets.md`: Guía para integrarse con Google Sheets.
+
+## Pantalla "Por Cobrar"
+
+Se agregó una pantalla dedicada a gestionar las ventas pendientes (deudas):
+
+- Resumen del total por cobrar y número de deudas.
+- Filtros por departamento y tipo de pago (efectivo/transferencia).
+- Ordenamiento por fecha o monto.
+- Acciones por deuda: marcar como cobrada, ver detalle (modal) y eliminar (restaurando stock).
+
+La nueva pantalla está en `src/screens/DuesScreen.tsx` y aparece como la pestaña "Por Cobrar" en la navegación.
 
 ## Notas de uso
 
@@ -95,3 +109,40 @@ Notas:
 
 - Añadir exportación de reportes a PDF y filtros por rango de fechas.
 - Añadir autenticación y sincronización remota (si se requiere multi-dispositivo).
+
+## Mejoras de rendimiento (scroll en móvil)
+
+Se aplicaron optimizaciones para mejorar la fluidez del scroll en móviles:
+
+- Aumentado `scrollEventThrottle` a `32` en ScrollView principales para reducir la frecuencia de eventos.
+- Habilitado `removeClippedSubviews` en `ScrollView` y `FlatList` donde aplica para evitar renderizar vistas fuera de pantalla.
+- Añadidos parámetros de virtualización en `FlatList`: `initialNumToRender`, `maxToRenderPerBatch` y `updateCellsBatchingPeriod`.
+- Memoización de componentes y callbacks (`React.memo`, `useCallback`) para evitar re-renders innecesarios.
+
+Estos cambios mejoran la experiencia en pantallas con listas largas (Por Cobrar, Productos, Reportes).
+
+Changelog:
+
+- 2026-01-05: Añadida la pantalla `Por Cobrar` y optimizaciones de scroll y renderizado en listas (aumentado `scrollEventThrottle`, virtualización de `FlatList`, memoización de items y callbacks).
+
+## Cómo probar los cambios (móvil)
+
+1. Instala dependencias:
+
+```bash
+npm install
+```
+
+2. Inicia Expo y abre en dispositivo móvil (con Expo Go) o emulador:
+
+```bash
+npm start
+# o
+npm run android
+# o
+npm run ios
+```
+
+3. Navega a la pestaña "Por Cobrar" y prueba desplazamiento en listas con muchos items; verifica que el desplazamiento sea más fluido.
+
+Si quieres, puedo ajustar los valores de `initialNumToRender`/`maxToRenderPerBatch` según la cantidad real de datos que manejes.

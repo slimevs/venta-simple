@@ -1,5 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { Alert, FlatList, Pressable, Text, TextInput, View, ScrollView, Platform, Modal } from 'react-native';
+import React, { useMemo, useRef, useState, useCallback } from 'react';
+import { Alert, FlatList, Pressable, Text, TextInput, View, ScrollView, Platform } from 'react-native';
 import { useProducts } from '../state/ProductsContext';
 import { useSales } from '../state/SalesContext';
 import { Button, Field, Title, styles } from '../components/Common';
@@ -11,7 +11,7 @@ import { useToast } from '../components/Toast';
 
 export function SalesScreen() {
   const { products } = useProducts();
-  const { sales, add, update, remove } = useSales();
+  const { sales, add } = useSales();
   const navigation = useNavigation<any>();
   const toast = useToast();
   const scrollRef = useRef<ScrollView>(null);
@@ -26,7 +26,6 @@ export function SalesScreen() {
   const [department, setDepartment] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<'pagado' | 'pendiente'>('pagado');
   const [qtyError, setQtyError] = useState<string | null>(null);
-  const [detailSale, setDetailSale] = useState<import('../models/Sale').Sale | null>(null);
   const [deptError, setDeptError] = useState<string | null>(null);
   const [paymentType, setPaymentType] = useState<'efectivo' | 'transferencia'>('efectivo');
   const [productError, setProductError] = useState<boolean>(false);
@@ -40,7 +39,7 @@ export function SalesScreen() {
   const total = useMemo(() => items.reduce((acc, it) => acc + it.subtotal, 0), [items]);
   const pendingSales = useMemo(() => sales.filter((s) => s.paymentStatus !== 'pagado'), [sales]);
 
-  function addItem() {
+  const addItem = useCallback(() => {
     setError(null);
     if (!selectedProduct) {
       Alert.alert('Faltan datos', 'Selecciona un producto para agregar.');
@@ -76,13 +75,13 @@ export function SalesScreen() {
     setQuantity('');
     setQtyError(null);
     setProductError(false);
-  }
+  }, [selectedProduct, quantity, items]);
 
-  function removeItem(productId: string) {
+  const removeItem = useCallback((productId: string) => {
     setItems((prev) => prev.filter((i) => i.productId !== productId));
-  }
+  }, []);
 
-  function saveSale() {
+  const saveSale = useCallback(() => {
     setError(null);
     try {
       if (items.length === 0) {
@@ -109,17 +108,18 @@ export function SalesScreen() {
     } catch (e: any) {
       setError(String(e?.message ?? e));
     }
-  }
+  }, [items, total, department, paymentStatus, paymentType, add, toast]);
 
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
         ref={scrollRef}
         onScroll={(e) => setShowTop(e.nativeEvent.contentOffset.y > 200)}
-        scrollEventThrottle={16}
+        scrollEventThrottle={32}
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
         keyboardShouldPersistTaps="handled"
+        removeClippedSubviews={true}
       >
       <Title>Registrar Venta</Title>
 
@@ -146,7 +146,29 @@ export function SalesScreen() {
             />
           </View>
         )}
-        <Field label="Cantidad" value={quantity} onChangeText={(t) => { setQuantity(t); if (qtyError) setQtyError(null); }} placeholder="Ej. 2" keyboardType="numeric" error={qtyError} />
+        <Field
+          label="Cantidad"
+          value={quantity}
+          onChangeText={(t) => {
+            const isKg = selectedProduct?.unit === 'kg';
+            let next = t;
+            if (isKg) {
+              next = next.replace(',', '.');
+              next = next.replace(/[^\d.]/g, '');
+              const firstDot = next.indexOf('.');
+              if (firstDot !== -1) {
+                next = next.slice(0, firstDot + 1) + next.slice(firstDot + 1).replace(/\./g, '');
+              }
+            } else {
+              next = next.replace(/\D/g, '');
+            }
+            setQuantity(next);
+            if (qtyError) setQtyError(null);
+          }}
+          placeholder={selectedProduct?.unit === 'kg' ? 'Ej. 1.25' : 'Ej. 2'}
+          keyboardType={selectedProduct?.unit === 'kg' ? 'decimal-pad' : 'numeric'}
+          error={qtyError}
+        />
         <Field
           label="Departamento (numérico)"
           value={department}
@@ -228,6 +250,7 @@ export function SalesScreen() {
             );
           }}
           scrollEnabled={false}
+          removeClippedSubviews={true}
           ListEmptyComponent={<Text style={styles.small}>Aún no hay productos en la venta</Text>}
         />
 
@@ -237,130 +260,36 @@ export function SalesScreen() {
         </View>
       </View>
 
-      <Button title="Guardar venta" onPress={saveSale} disabled={items.length === 0} />
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flex: 1 }}>
+          <Button title="Guardar venta" onPress={saveSale} disabled={items.length === 0} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Button
+            title="Ver deudas"
+            variant="secondary"
+            onPress={() => navigation.navigate('Por Cobrar')}
+          />
+        </View>
+      </View>
 
-      <View style={[styles.card, { marginTop: 16 }] }>
-        <Text style={{ fontWeight: '700', marginBottom: 8 }}>Ventas por cobrar</Text>
-        <FlatList
-          data={pendingSales}
-          keyExtractor={(s) => s.id}
-          renderItem={({ item: s }) => (
-            <View style={{ marginBottom: 10 }}>
-              <View style={styles.row}>
-                <Text style={{ fontWeight: '600' }}>{new Date(s.createdAt).toLocaleString()}</Text>
-                <Text style={styles.small}>Total: {formatCLP(s.total)}</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={styles.small}>Depto: {typeof s.department === 'number' ? s.department : '-'}</Text>
-                <Text style={[styles.small, { textTransform: 'capitalize' }]}>Estado: {s.paymentStatus}</Text>
-              </View>
-              <View style={styles.row}>
-                <Text style={[styles.small, { textTransform: 'capitalize' }]}>Pago: {s.paymentType}</Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {[
-                    { key: 'efectivo', label: 'Efectivo' },
-                    { key: 'transferencia', label: 'Transferencia' },
-                  ].map((opt) => (
-                    <Pressable
-                      key={opt.key}
-                      onPress={() => update(s.id, { paymentType: opt.key as any })}
-                      style={{
-                        paddingVertical: 4,
-                        paddingHorizontal: 8,
-                        borderRadius: 6,
-                        borderWidth: 1,
-                        borderColor: s.paymentType === (opt.key as any) ? '#1d4ed8' : '#d1d5db',
-                        backgroundColor: s.paymentType === (opt.key as any) ? '#dbeafe' : 'white',
-                      }}
-                    >
-                      <Text style={{ color: '#111827' }}>{opt.label}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <Button title="Pagado" onPress={() => { update(s.id, { paymentStatus: 'pagado' }); toast.show('Venta marcada como pagada', { type: 'success' }); }} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Button title="Ver detalle" variant="secondary" onPress={() => setDetailSale(s)} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Button
-                    title="Eliminar"
-                    variant="danger"
-                    onPress={() => {
-                      if (Platform.OS === 'web') {
-                        const ok = typeof window !== 'undefined' && typeof (window as any).confirm === 'function'
-                          ? (window as any).confirm('¿Deseas eliminar esta venta pendiente?')
-                          : true;
-                        if (ok) {
-                          remove(s.id);
-                          toast.show('Venta eliminada', { type: 'success' });
-                        }
-                      } else {
-                        Alert.alert('Eliminar venta pendiente', '¿Deseas eliminar esta venta pendiente?', [
-                          { text: 'Cancelar', style: 'cancel' },
-                          { text: 'Eliminar', style: 'destructive', onPress: () => { remove(s.id); toast.show('Venta eliminada', { type: 'success' }); } },
-                        ]);
-                      }
-                    }}
-                  />
-                </View>
-                {/* Parcial eliminado */}
-              </View>
-            </View>
-          )}
-          scrollEnabled={false}
-          ListEmptyComponent={<Text style={styles.small}>Sin ventas pendientes</Text>}
-        />
+      <View style={[styles.card, { marginTop: 16 }]}>
+        <Text style={{ fontWeight: '700', marginBottom: 8 }}>Deudas pendientes</Text>
+        {pendingSales.length === 0 ? (
+          <Text style={styles.small}>Sin ventas pendientes</Text>
+        ) : (
+          <Text style={[styles.label, { marginBottom: 8 }]}>
+            Tienes {pendingSales.length} deuda(s) pendiente(s) por {formatCLP(pendingSales.reduce((acc, s) => acc + s.total, 0))}
+          </Text>
+        )}
+        {pendingSales.length > 0 && (
+          <Button
+            title="Ir a Por Cobrar →"
+            onPress={() => navigation.navigate('Por Cobrar')}
+          />
+        )}
       </View>
       </ScrollView>
-      {/* Modal Detalle Venta */}
-      <Modal
-        visible={!!detailSale}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDetailSale(null)}
-      >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
-          <View style={{ backgroundColor: 'white', borderRadius: 12, padding: 16, width: '100%', maxWidth: 520 }}>
-            <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>Detalle de venta</Text>
-            {detailSale && (
-              <View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Text style={styles.small}>{new Date(detailSale.createdAt).toLocaleString()}</Text>
-                  <Text style={styles.small}>Total: {formatCLP(detailSale.total)}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Text style={styles.small}>Depto: {typeof detailSale.department === 'number' ? detailSale.department : '-'}</Text>
-                  <Text style={[styles.small, { textTransform: 'capitalize' }]}>Pago: {detailSale.paymentType}</Text>
-                </View>
-                <View style={{ maxHeight: 260 }}>
-                  <FlatList
-                    data={detailSale.items}
-                    keyExtractor={(i) => i.productId}
-                    renderItem={({ item }) => {
-                      const p = products.find((x) => x.id === item.productId);
-                      return (
-                        <View style={[styles.row, { marginBottom: 6 }]}>
-                          <Text>{p?.name ?? item.productId} x {item.quantity}{p?.unit === 'kg' ? ' kg' : ''}</Text>
-                          <Text>{formatCLP(item.subtotal)}</Text>
-                        </View>
-                      );
-                    }}
-                  />
-                </View>
-              </View>
-            )}
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-              <View style={{ flex: 1 }}>
-                <Button title="Cerrar" variant="secondary" onPress={() => setDetailSale(null)} />
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
       <FloatingScrollTop visible={showTop} onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />
     </View>
   );

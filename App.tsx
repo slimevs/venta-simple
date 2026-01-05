@@ -2,6 +2,7 @@ import 'react-native-gesture-handler';
 import React from 'react';
 import { ProductsScreen } from './src/screens/ProductsScreen';
 import { SalesScreen } from './src/screens/SalesScreen';
+import { DuesScreen } from './src/screens/DuesScreen';
 import { ReportsScreen } from './src/screens/ReportsScreen';
 import { ProductsProvider } from './src/state/ProductsContext';
 import { SalesProvider } from './src/state/SalesContext';
@@ -33,6 +34,9 @@ export default function App() {
                   case 'Ventas':
                     name = focused ? 'cart' : 'cart-outline';
                     break;
+                  case 'Por Cobrar':
+                    name = focused ? 'receipt' : 'receipt-outline';
+                    break;
                   case 'Productos':
                     name = focused ? 'cube' : 'cube-outline';
                     break;
@@ -47,6 +51,7 @@ export default function App() {
             })}
           >
             <Tab.Screen name="Ventas" component={SalesScreen} options={{ title: 'Ventas' }} />
+            <Tab.Screen name="Por Cobrar" component={DuesScreen} options={{ title: 'Por Cobrar' }} />
             <Tab.Screen name="Productos" component={ProductsScreen} options={{ title: 'Productos' }} />
             <Tab.Screen name="Reportes" component={ReportsScreen} options={{ title: 'Reportes' }} />
           </Tab.Navigator>

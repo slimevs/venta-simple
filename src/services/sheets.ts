@@ -250,8 +250,11 @@ async function fetchJSONWithCORS(url: string): Promise<any | null> {
       throw e;
     }
   } catch (_) {
-    // Intento JSONP como alternativa (requiere soporte del backend)
-    return await fetchJSONP(url);
+    // Intento JSONP solo en web (requiere DOM)
+    if (typeof document !== 'undefined') {
+      return await fetchJSONP(url);
+    }
+    return null;
   }
 }
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { FlatList, Text, TextInput, View, ScrollView } from 'react-native';
 import { useProducts } from '../state/ProductsContext';
 import { Button, Field, Title, styles } from '../components/Common';
@@ -29,7 +29,7 @@ export function ProductsScreen() {
     return products.filter((p) => p.name.toLowerCase().includes(q));
   }, [products, query]);
 
-  function resetForm() {
+  const resetForm = useCallback(() => {
     setName('');
     setPrice('');
     setStock('');
@@ -38,9 +38,9 @@ export function ProductsScreen() {
     setNameError(null);
     setPriceError(null);
     setStockError(null);
-  }
+  }, []);
 
-  function onSubmit() {
+  const onSubmit = useCallback(() => {
     const hasName = name.trim().length > 0;
     const p = parseFloat(price);
     const s = unit === 'kg' ? parseFloat(stock || '0') : parseInt(stock || '0', 10);
@@ -60,17 +60,18 @@ export function ProductsScreen() {
       toast.show('Producto guardado', { type: 'success' });
     }
     resetForm();
-  }
+  }, [name, price, stock, unit, editingId, update, add, toast, resetForm]);
 
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
         ref={scrollRef}
         onScroll={(e) => setShowTop(e.nativeEvent.contentOffset.y > 200)}
-        scrollEventThrottle={16}
+        scrollEventThrottle={32}
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
         keyboardShouldPersistTaps="handled"
+        removeClippedSubviews={true}
       >
       <Title>Productos</Title>
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 }}>
@@ -123,7 +124,28 @@ export function ProductsScreen() {
           ))}
         </View>
         <Field label={unit === 'kg' ? 'Precio por kg' : 'Precio unitario'} value={price} onChangeText={(t) => { setPrice(t); if (priceError) setPriceError(null); }} placeholder="Ej. 12.50" keyboardType="numeric" error={priceError} />
-        <Field label={unit === 'kg' ? 'Stock (kg)' : 'Stock (u)'} value={stock} onChangeText={(t) => { setStock(t); if (stockError) setStockError(null); }} placeholder={unit === 'kg' ? 'Ej. 10.5' : 'Ej. 100'} keyboardType="numeric" error={stockError} />
+        <Field
+          label={unit === 'kg' ? 'Stock (kg)' : 'Stock (u)'}
+          value={stock}
+          onChangeText={(t) => {
+            let next = t;
+            if (unit === 'kg') {
+              next = next.replace(',', '.');
+              next = next.replace(/[^\d.]/g, '');
+              const firstDot = next.indexOf('.');
+              if (firstDot !== -1) {
+                next = next.slice(0, firstDot + 1) + next.slice(firstDot + 1).replace(/\./g, '');
+              }
+            } else {
+              next = next.replace(/\D/g, '');
+            }
+            setStock(next);
+            if (stockError) setStockError(null);
+          }}
+          placeholder={unit === 'kg' ? 'Ej. 10.5' : 'Ej. 100'}
+          keyboardType={unit === 'kg' ? 'decimal-pad' : 'numeric'}
+          error={stockError}
+        />
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 1 }}>
             <Button
@@ -173,6 +195,10 @@ export function ProductsScreen() {
           </View>
         )}
         scrollEnabled={false}
+        removeClippedSubviews={true}
+        initialNumToRender={15}
+        maxToRenderPerBatch={15}
+        updateCellsBatchingPeriod={50}
         ListEmptyComponent={<Text style={styles.small}>No hay productos aún</Text>}
       />
       </ScrollView>

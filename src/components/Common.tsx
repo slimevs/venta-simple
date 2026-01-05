@@ -21,7 +21,7 @@ export function Field({
   value: string;
   onChangeText: (t: string) => void;
   placeholder?: string;
-  keyboardType?: 'default' | 'numeric';
+  keyboardType?: 'default' | 'numeric' | 'decimal-pad';
   error?: string | null;
 }) {
   return (
