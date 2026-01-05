@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useRef } from 'react';
-import { Alert, FlatList, Text, View, Platform, ScrollView, Pressable } from 'react-native';
+import { Alert, FlatList, Text, View, Platform, ScrollView, Pressable, Modal } from 'react-native';
 import { useSales } from '../state/SalesContext';
 import { useProducts } from '../state/ProductsContext';
 import { Button, Title, styles, Field } from '../components/Common';
@@ -7,6 +7,7 @@ import { formatCLP } from '../utils/currency';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { fetchSalesFromSheets } from '../services/sheets';
 import { useToast } from '../components/Toast';
 import type { Sale } from '../models/Sale';
@@ -21,6 +22,8 @@ export function ReportsScreen() {
   const [days] = useState(7);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [pickerDate, setPickerDate] = useState<Date>(new Date());
+  const [activePicker, setActivePicker] = useState<'start' | 'end' | null>(null);
   const [statusFilter, setStatusFilter] = useState<'todos' | 'pagado' | 'pendiente'>('todos');
   const [typeFilter, setTypeFilter] = useState<'todos' | 'efectivo' | 'transferencia'>('todos');
   const [departmentFilter, setDepartmentFilter] = useState<string>('todos');
@@ -29,6 +32,8 @@ export function ReportsScreen() {
   const [prodDropdown, setProdDropdown] = useState(false);
   const [prodFilter, setProdFilter] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const isWeb = Platform.OS === 'web';
+  const useNativePicker = Platform.OS === 'android' || Platform.OS === 'ios';
 
   const filteredSales = useMemo(() => {
     const start = parseYMD(startDate);
@@ -71,7 +76,7 @@ export function ReportsScreen() {
 
     // Últimos N días
     const now = new Date();
-    const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+    const dayKey = (d: Date) => formatYMDLocal(d);
     const daysArr: DayStat[] = [];
     const map: Record<string, number> = {};
     for (let i = days - 1; i >= 0; i--) {
@@ -200,6 +205,33 @@ export function ReportsScreen() {
     return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue);
   }, [filteredSales]);
 
+  const openPicker = useCallback((which: 'start' | 'end') => {
+    const base = which === 'start' ? parseYMD(startDate) : parseYMD(endDate);
+    setPickerDate(base ?? new Date());
+    setActivePicker(which);
+  }, [startDate, endDate]);
+
+  const applyPicker = useCallback(() => {
+    if (!activePicker) return;
+    const value = formatYMDLocal(pickerDate);
+    if (activePicker === 'start') setStartDate(value);
+    else setEndDate(value);
+    setActivePicker(null);
+  }, [activePicker, pickerDate]);
+
+  const onAndroidChange = useCallback((event: DateTimePickerEvent, date?: Date) => {
+    if ((event as any)?.type === 'dismissed') {
+      setActivePicker(null);
+      return;
+    }
+    if (date) {
+      const value = formatYMDLocal(date);
+      if (activePicker === 'start') setStartDate(value);
+      else if (activePicker === 'end') setEndDate(value);
+    }
+    setActivePicker(null);
+  }, [activePicker]);
+
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }} scrollEventThrottle={32} removeClippedSubviews={true}>
       <Title>Reportes</Title>
@@ -225,8 +257,38 @@ export function ReportsScreen() {
 
       <View style={[styles.card, { marginBottom: 12 }]}>
         <Text style={{ fontWeight: '700', marginBottom: 8 }}>Filtro por fechas</Text>
-        <Field label="Desde (YYYY-MM-DD)" value={startDate} onChangeText={setStartDate} placeholder="2025-01-01" />
-        <Field label="Hasta (YYYY-MM-DD)" value={endDate} onChangeText={setEndDate} placeholder="2025-12-31" />
+        {useNativePicker ? (
+          <>
+            <View style={{ marginBottom: 10 }}>
+              <Text style={styles.label}>Desde</Text>
+              <Pressable onPress={() => openPicker('start')} style={styles.input}>
+                <Text style={{ color: startDate ? '#111827' : '#9ca3af' }}>{startDate || 'YYYY-MM-DD'}</Text>
+              </Pressable>
+            </View>
+            <View style={{ marginBottom: 10 }}>
+              <Text style={styles.label}>Hasta</Text>
+              <Pressable onPress={() => openPicker('end')} style={styles.input}>
+                <Text style={{ color: endDate ? '#111827' : '#9ca3af' }}>{endDate || 'YYYY-MM-DD'}</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : isWeb ? (
+          <>
+            <View style={{ marginBottom: 10 }}>
+              <Text style={styles.label}>Desde</Text>
+              <WebDateInput value={startDate} onChange={setStartDate} />
+            </View>
+            <View style={{ marginBottom: 10 }}>
+              <Text style={styles.label}>Hasta</Text>
+              <WebDateInput value={endDate} onChange={setEndDate} />
+            </View>
+          </>
+        ) : (
+          <>
+            <Field label="Desde (YYYY-MM-DD)" value={startDate} onChangeText={setStartDate} placeholder="2025-01-01" />
+            <Field label="Hasta (YYYY-MM-DD)" value={endDate} onChangeText={setEndDate} placeholder="2025-12-31" />
+          </>
+        )}
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
           <View style={{ flex: 1 }}>
             <Button title="Últimos 7 días" variant="secondary" onPress={() => setQuickRange(7, setStartDate, setEndDate)} />
@@ -740,6 +802,32 @@ export function ReportsScreen() {
           ListEmptyComponent={<Text style={styles.small}>Sin ventas aún</Text>}
         />
       </View>
+      {useNativePicker && activePicker && Platform.OS === 'android' && (
+        <DateTimePicker value={pickerDate} mode="date" display="default" onChange={onAndroidChange} />
+      )}
+      {useNativePicker && activePicker && Platform.OS === 'ios' && (
+        <Modal
+          visible={true}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setActivePicker(null)}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+            <View style={{ backgroundColor: 'white', borderRadius: 12, padding: 16, width: '100%', maxWidth: 420 }}>
+              <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 12 }}>Selecciona fecha</Text>
+              <DateTimePicker value={pickerDate} mode="date" display="spinner" onChange={(_, date) => date && setPickerDate(date)} />
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+                <View style={{ flex: 1 }}>
+                  <Button title="Aplicar" onPress={applyPicker} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button title="Cancelar" variant="secondary" onPress={() => setActivePicker(null)} />
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </ScrollView>
   );
 }
@@ -783,16 +871,44 @@ function parseYMD(s: string): Date | null {
   if (!s) return null;
   const ok = /^\d{4}-\d{2}-\d{2}$/.test(s);
   if (!ok) return null;
-  const d = new Date(s + 'T00:00:00Z');
-  return isNaN(d.getTime()) ? null : d;
+  const [y, m, d] = s.split('-').map((n) => parseInt(n, 10));
+  const date = new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+  return isNaN(date.getTime()) ? null : date;
 }
 
 function setQuickRange(days: number, setStart: (s: string) => void, setEnd: (s: string) => void) {
   const end = new Date();
   const start = new Date();
   start.setDate(end.getDate() - (days - 1));
-  setStart(start.toISOString().slice(0, 10));
-  setEnd(end.toISOString().slice(0, 10));
+  setStart(formatYMDLocal(start));
+  setEnd(formatYMDLocal(end));
+}
+
+function formatYMDLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function WebDateInput({ value, onChange }: { value: string; onChange: (next: string) => void }) {
+  return React.createElement('input', {
+    type: 'date',
+    value,
+    placeholder: 'YYYY-MM-DD',
+    onChange: (e: any) => onChange(e.target.value),
+    style: {
+      width: '100%',
+      borderWidth: 1,
+      borderStyle: 'solid',
+      borderColor: '#d1d5db',
+      borderRadius: 6,
+      padding: '8px 10px',
+      backgroundColor: 'white',
+      color: '#111827',
+      boxSizing: 'border-box',
+    },
+  });
 }
 
 function buildReportHTML(sales: Sale[], products: Product[], start: string, end: string): string {

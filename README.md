@@ -119,6 +119,7 @@ La nueva pantalla está en `src/screens/DuesScreen.tsx` y aparece como la pesta�
   - Campos adicionales: departamento y estado de pago (pagado/pendiente).
   - Sección “Ventas por cobrar”: lista ventas en estado pendiente y permite actualizar su estado a pagado/pendiente con método de pago.
   - Cantidad en ventas: si el producto es por kg, permite decimales (ej. 1.25).
+  - En Reportes, los campos de fecha usan selector nativo en iOS/Android (DateTimePicker).
 - Reportes: resumen de ingresos y unidades, top productos y gráfico simple por día.
   - Filtros por rango de fechas (campos Desde/Hasta y accesos rápidos 7/30 días).
   - Botón “Exportar CSV”: genera un CSV y lo comparte (o guarda en caché si no hay mecanismo de compartir disponible).
