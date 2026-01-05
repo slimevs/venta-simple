@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { Alert, FlatList, Text, View, Platform, ScrollView, Pressable } from 'react-native';
 import { useSales } from '../state/SalesContext';
 import { useProducts } from '../state/ProductsContext';
@@ -201,7 +201,7 @@ export function ReportsScreen() {
   }, [filteredSales]);
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }} scrollEventThrottle={32} removeClippedSubviews={true}>
       <Title>Reportes</Title>
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 }}>
         <Button
@@ -315,6 +315,8 @@ export function ReportsScreen() {
                     {item === 'todos' ? 'Todos' : `Depto ${item}`}
                   </Text>
                 )}
+                removeClippedSubviews={true}
+                nestedScrollEnabled={true}
               />
             </View>
           )}
@@ -350,13 +352,21 @@ export function ReportsScreen() {
             <Button title="Exportar PDF (Resumen)" variant="secondary" onPress={async () => {
               try {
                 const html = buildProductPaymentReportHTML(productPaymentSummary, startDate, endDate);
-                const { uri } = await (Print as any).printToFileAsync({ html });
-                if (Platform.OS === 'android' || Platform.OS === 'ios') {
+                if (Platform.OS === 'web') {
+                  const w = window.open('', '_blank');
+                  if (w) {
+                    w.document.write(html);
+                    w.document.close();
+                    w.focus();
+                    w.print();
+                  } else {
+                    Alert.alert('No se pudo abrir la ventana de impresión');
+                  }
+                } else {
+                  const { uri } = await (Print as any).printToFileAsync({ html });
                   const available = await (Sharing as any).isAvailableAsync();
                   if (available) await (Sharing as any).shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Compartir resumen PDF' } as any);
                   else Alert.alert('PDF listo', `Archivo guardado en: ${uri}`);
-                } else {
-                  (window as any).open(uri, '_blank');
                 }
               } catch (e: any) {
                 Alert.alert('Error al exportar PDF', String(e?.message ?? e));
@@ -368,6 +378,9 @@ export function ReportsScreen() {
           scrollEnabled={false}
           data={productPaymentSummary}
           keyExtractor={(i) => i.productId}
+          removeClippedSubviews={true}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
           ListHeaderComponent={() => (
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
               <Text style={{ fontWeight: '700' }}>Producto</Text>
@@ -421,13 +434,21 @@ export function ReportsScreen() {
             <Button title="Exportar PDF (Depto)" variant="secondary" onPress={async () => {
               try {
                 const html = buildDepartmentReportHTML(departmentSummary, startDate, endDate);
-                const { uri } = await (Print as any).printToFileAsync({ html });
-                if (Platform.OS === 'android' || Platform.OS === 'ios') {
+                if (Platform.OS === 'web') {
+                  const w = window.open('', '_blank');
+                  if (w) {
+                    w.document.write(html);
+                    w.document.close();
+                    w.focus();
+                    w.print();
+                  } else {
+                    Alert.alert('No se pudo abrir la ventana de impresión');
+                  }
+                } else {
+                  const { uri } = await (Print as any).printToFileAsync({ html });
                   const available = await (Sharing as any).isAvailableAsync();
                   if (available) await (Sharing as any).shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Compartir PDF (Depto)' } as any);
                   else Alert.alert('PDF listo', `Archivo guardado en: ${uri}`);
-                } else {
-                  (window as any).open(uri, '_blank');
                 }
               } catch (e: any) {
                 Alert.alert('Error al exportar PDF', String(e?.message ?? e));
@@ -531,14 +552,21 @@ export function ReportsScreen() {
                 <Button title="Exportar PDF (Producto)" variant="secondary" onPress={async () => {
                   try {
                     const html = buildProductReportHTML(selectedProduct, productRows, startDate, endDate);
-                    const { uri } = await (Print as any).printToFileAsync({ html });
-                    if (Platform.OS === 'android' || Platform.OS === 'ios') {
+                    if (Platform.OS === 'web') {
+                      const w = window.open('', '_blank');
+                      if (w) {
+                        w.document.write(html);
+                        w.document.close();
+                        w.focus();
+                        w.print();
+                      } else {
+                        Alert.alert('No se pudo abrir la ventana de impresión');
+                      }
+                    } else {
+                      const { uri } = await (Print as any).printToFileAsync({ html });
                       const available = await (Sharing as any).isAvailableAsync();
                       if (available) await (Sharing as any).shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Compartir PDF de producto' } as any);
                       else Alert.alert('PDF listo', `Archivo guardado en: ${uri}`);
-                    } else {
-                      // Web: abrir el PDF en una pestaña
-                      (window as any).open(uri, '_blank');
                     }
                   } catch (e: any) {
                     Alert.alert('Error al exportar PDF', String(e?.message ?? e));
