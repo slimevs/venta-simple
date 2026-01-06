@@ -144,6 +144,7 @@ export function ProductsScreen() {
         <Button
           title="Sincronizar ahora"
           variant="secondary"
+          iconName="sync-outline"
           onPress={async () => {
             try {
               const changes = await fetchProductChangesFromSheets();
@@ -162,18 +163,10 @@ export function ProductsScreen() {
       </View>
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
-        <Button title="Nuevo producto" onPress={openNew} />
+        <Button title="Nuevo producto" onPress={openNew} iconName="add-circle-outline" />
       </View>
 
       <TextInput value={query} onChangeText={setQuery} placeholder="Buscar producto" style={[styles.input, { marginBottom: 8 }]} />
-
-      <View style={[styles.row, { marginBottom: 8 }]}>
-        <Text style={styles.small}>Pagina {page} de {totalPages}</Text>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Button title="Anterior" variant="secondary" onPress={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} />
-          <Button title="Siguiente" variant="secondary" onPress={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} />
-        </View>
-      </View>
 
       <FlatList
         data={paged}
@@ -187,8 +180,8 @@ export function ProductsScreen() {
             <View style={styles.row}>
               <Text style={styles.small}>Precio: {formatCLP(item.price)} {item.unit === 'kg' ? '/kg' : ''}</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Button title="Editar" variant="secondary" onPress={() => openEdit(item)} />
-                <Button title="Borrar" variant="danger" onPress={() => handleDelete(item.id)} />
+                <Button title="Editar" variant="secondary" onPress={() => openEdit(item)} iconName="create-outline" />
+                <Button title="Borrar" variant="danger" onPress={() => handleDelete(item.id)} iconName="trash-outline" />
               </View>
             </View>
           </View>
@@ -200,6 +193,13 @@ export function ProductsScreen() {
         updateCellsBatchingPeriod={50}
         ListEmptyComponent={<Text style={styles.small}>No hay productos aún</Text>}
       />
+      <View style={[styles.row, { marginTop: 8 }]}>
+        <Text style={styles.small}>Pagina {page} de {totalPages}</Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Button title="Anterior" variant="secondary" onPress={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} iconName="chevron-back-outline" />
+          <Button title="Siguiente" variant="secondary" onPress={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} iconName="chevron-forward-outline" />
+        </View>
+      </View>
       </ScrollView>
       <Modal
         visible={formOpen}
@@ -266,6 +266,7 @@ export function ProductsScreen() {
                 <Button
                   title={editingId ? 'Guardar cambios' : 'Agregar'}
                   onPress={onSubmit}
+                  iconName={editingId ? 'save-outline' : 'add-circle-outline'}
                   disabled={
                     !name.trim() ||
                     isNaN(parseFloat(price)) || parseFloat(price) <= 0 ||
@@ -276,7 +277,7 @@ export function ProductsScreen() {
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Button title="Cancelar" variant="secondary" onPress={resetForm} />
+                <Button title="Cancelar" variant="secondary" onPress={resetForm} iconName="close-circle-outline" />
               </View>
             </View>
           </View>

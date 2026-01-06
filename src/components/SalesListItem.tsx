@@ -49,13 +49,13 @@ export const SalesListItem = React.memo(function SalesListItem({
 
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <View style={{ flex: 1 }}>
-          <Button title="Cobrado" onPress={() => onMarkAsPaid(sale)} />
+          <Button title="Cobrado" onPress={() => onMarkAsPaid(sale)} iconName="cash-outline" />
         </View>
         <View style={{ flex: 1 }}>
-          <Button title="Detalle" variant="secondary" onPress={() => onViewDetail(sale)} />
+          <Button title="Detalle" variant="secondary" onPress={() => onViewDetail(sale)} iconName="eye-outline" />
         </View>
         <View style={{ flex: 1 }}>
-          <Button title="Eliminar" variant="danger" onPress={() => onDelete(sale.id)} />
+          <Button title="Eliminar" variant="danger" onPress={() => onDelete(sale.id)} iconName="trash-outline" />
         </View>
       </View>
     </View>

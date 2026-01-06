@@ -294,10 +294,11 @@ export function DuesScreen() {
                       setDetailSale(null);
                     }
                   }}
+                  iconName="cash-outline"
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Button title="Cerrar" variant="secondary" onPress={() => setDetailSale(null)} />
+                <Button title="Cerrar" variant="secondary" onPress={() => setDetailSale(null)} iconName="close-circle-outline" />
               </View>
             </View>
           </View>
@@ -340,10 +341,10 @@ export function DuesScreen() {
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <View style={{ flex: 1 }}>
-                <Button title="Confirmar" onPress={confirmMarkAsPaid} />
+                <Button title="Confirmar" onPress={confirmMarkAsPaid} iconName="checkmark-circle-outline" />
               </View>
               <View style={{ flex: 1 }}>
-                <Button title="Cancelar" variant="secondary" onPress={() => setPaySale(null)} />
+                <Button title="Cancelar" variant="secondary" onPress={() => setPaySale(null)} iconName="close-circle-outline" />
               </View>
             </View>
           </View>
