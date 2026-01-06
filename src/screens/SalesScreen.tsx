@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useCallback } from 'react';
-import { Alert, FlatList, Pressable, Text, TextInput, View, ScrollView, Platform } from 'react-native';
+import { Alert, FlatList, Pressable, Text, TextInput, View, ScrollView, Modal } from 'react-native';
 import { useProducts } from '../state/ProductsContext';
 import { useSales } from '../state/SalesContext';
 import { Button, Field, Title, styles } from '../components/Common';
@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { formatCLP } from '../utils/currency';
 import { FloatingScrollTop } from '../components/FloatingScrollTop';
 import { useToast } from '../components/Toast';
+import { Calendar, DateData } from 'react-native-calendars';
 
 export function SalesScreen() {
   const { products } = useProducts();
@@ -29,6 +30,9 @@ export function SalesScreen() {
   const [deptError, setDeptError] = useState<string | null>(null);
   const [paymentType, setPaymentType] = useState<'efectivo' | 'transferencia'>('efectivo');
   const [productError, setProductError] = useState<boolean>(false);
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [saleDate, setSaleDate] = useState(() => formatYMDLocal(new Date()));
+  const [draftDate, setDraftDate] = useState(() => formatYMDLocal(new Date()));
 
   const selectedProduct = useMemo(() => products.find((p) => p.id === selectedId), [products, selectedId]);
   const filtered = useMemo(() => {
@@ -94,7 +98,18 @@ export function SalesScreen() {
         setDeptError('Ingresa un departamento numérico');
         return;
       }
-      add({ items, total, department: dep, paymentStatus, paymentType });
+      const parsed = parseYMD(saleDate);
+      if (!parsed) {
+        Alert.alert('Fecha invalida', 'Selecciona una fecha valida.');
+        return;
+      }
+      const today = formatYMDLocal(new Date());
+      if (saleDate > today) {
+        Alert.alert('Fecha invalida', 'No se permiten fechas futuras.');
+        return;
+      }
+      const createdAt = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 0, 0, 0, 0).getTime();
+      add({ items, total, department: dep, paymentStatus, paymentType, createdAt });
       setItems([]);
       setSelectedId(null);
       setQuantity('');
@@ -104,11 +119,37 @@ export function SalesScreen() {
       setProductError(false);
       setPaymentStatus('pagado');
       setPaymentType('efectivo');
+      const todayReset = formatYMDLocal(new Date());
+      setSaleDate(todayReset);
+      setDraftDate(todayReset);
       toast.show('Venta guardada', { type: 'success' });
     } catch (e: any) {
       setError(String(e?.message ?? e));
     }
-  }, [items, total, department, paymentStatus, paymentType, add, toast]);
+  }, [items, total, department, paymentStatus, paymentType, add, toast, saleDate]);
+
+  const openCalendar = useCallback(() => {
+    setDraftDate(saleDate || formatYMDLocal(new Date()));
+    setCalendarVisible(true);
+  }, [saleDate]);
+
+  const closeCalendar = useCallback(() => {
+    setCalendarVisible(false);
+  }, []);
+
+  const onCalendarDayPress = useCallback((day: DateData) => {
+    setDraftDate(day.dateString);
+  }, []);
+
+  const applyCalendar = useCallback(() => {
+    const today = formatYMDLocal(new Date());
+    if (draftDate > today) {
+      Alert.alert('Fecha invalida', 'No se permiten fechas futuras.');
+      return;
+    }
+    setSaleDate(draftDate);
+    setCalendarVisible(false);
+  }, [draftDate]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -125,6 +166,10 @@ export function SalesScreen() {
 
       <View style={[styles.card, { marginBottom: 12 }] }>
         <Text style={{ fontWeight: '700', marginBottom: 8 }}>Agregar producto a la venta</Text>
+        <Text style={styles.label}>Fecha de venta</Text>
+        <Pressable onPress={openCalendar} style={[styles.input, { marginBottom: 10 }]}>
+          <Text style={{ color: saleDate ? '#111827' : '#9ca3af' }}>{saleDate || 'YYYY-MM-DD'}</Text>
+        </Pressable>
         <Text style={[styles.label, productError ? { color: '#b91c1c' } : null]}>Producto</Text>
         <Pressable onPress={() => { setDropdown((v) => !v); setProductError(false); }} style={[styles.input, { justifyContent: 'center' }, productError ? { borderColor: '#ef4444' } : null] }>
           <Text>{selectedProduct ? selectedProduct.name : 'Seleccionar...'}</Text>
@@ -291,6 +336,67 @@ export function SalesScreen() {
       </View>
       </ScrollView>
       <FloatingScrollTop visible={showTop} onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />
+      {calendarVisible && (
+        <Modal
+          visible={true}
+          transparent
+          animationType="fade"
+          onRequestClose={closeCalendar}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+            <View style={{ backgroundColor: 'white', borderRadius: 12, padding: 16, width: '100%', maxWidth: 420 }}>
+              <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 6 }}>Seleccionar fecha</Text>
+              <Text style={[styles.small, { marginBottom: 10 }]}>Fecha: {draftDate || 'YYYY-MM-DD'}</Text>
+              <Calendar
+                current={draftDate || formatYMDLocal(new Date())}
+                maxDate={formatYMDLocal(new Date())}
+                markedDates={draftDate ? { [draftDate]: { selected: true, selectedColor: '#2563eb', selectedTextColor: 'white' } } : undefined}
+                onDayPress={onCalendarDayPress}
+                firstDay={1}
+                hideExtraDays
+                theme={{
+                  calendarBackground: 'white',
+                  textSectionTitleColor: '#6b7280',
+                  selectedDayBackgroundColor: '#2563eb',
+                  selectedDayTextColor: 'white',
+                  dayTextColor: '#111827',
+                  textDisabledColor: '#d1d5db',
+                  monthTextColor: '#111827',
+                  arrowColor: '#111827',
+                  todayTextColor: '#2563eb',
+                  textDayFontWeight: '500',
+                  textMonthFontWeight: '700',
+                  textDayHeaderFontWeight: '600',
+                }}
+              />
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+                <View style={{ flex: 1 }}>
+                  <Button title="Aplicar" onPress={applyCalendar} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button title="Cancelar" variant="secondary" onPress={closeCalendar} />
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
+}
+
+function parseYMD(s: string): Date | null {
+  if (!s) return null;
+  const ok = /^\d{4}-\d{2}-\d{2}$/.test(s);
+  if (!ok) return null;
+  const [y, m, d] = s.split('-').map((n) => parseInt(n, 10));
+  const date = new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function formatYMDLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }

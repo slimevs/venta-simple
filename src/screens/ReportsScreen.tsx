@@ -7,7 +7,7 @@ import { formatCLP, formatNumber2 } from '../utils/currency';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { Calendar, DateData } from 'react-native-calendars';
 import { fetchSalesFromSheets } from '../services/sheets';
 import { useToast } from '../components/Toast';
 import type { Sale } from '../models/Sale';
@@ -22,8 +22,9 @@ export function ReportsScreen() {
   const [days] = useState(7);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [pickerDate, setPickerDate] = useState<Date>(new Date());
-  const [activePicker, setActivePicker] = useState<'start' | 'end' | null>(null);
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [draftStart, setDraftStart] = useState('');
+  const [draftEnd, setDraftEnd] = useState('');
   const [statusFilter, setStatusFilter] = useState<'todos' | 'pagado' | 'pendiente'>('todos');
   const [typeFilter, setTypeFilter] = useState<'todos' | 'efectivo' | 'transferencia'>('todos');
   const [departmentFilter, setDepartmentFilter] = useState<string>('todos');
@@ -34,8 +35,6 @@ export function ReportsScreen() {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [productPayPage, setProductPayPage] = useState(1);
   const [departmentPage, setDepartmentPage] = useState(1);
-  const isWeb = Platform.OS === 'web';
-  const useNativePicker = Platform.OS === 'android' || Platform.OS === 'ios';
 
   const filteredSales = useMemo(() => {
     const start = parseYMD(startDate);
@@ -248,32 +247,38 @@ export function ReportsScreen() {
     if (departmentPage > departmentTotalPages) setDepartmentPage(departmentTotalPages);
   }, [departmentPage, departmentTotalPages]);
 
-  const openPicker = useCallback((which: 'start' | 'end') => {
-    const base = which === 'start' ? parseYMD(startDate) : parseYMD(endDate);
-    setPickerDate(base ?? new Date());
-    setActivePicker(which);
+  const openCalendar = useCallback(() => {
+    setDraftStart(startDate);
+    setDraftEnd(endDate);
+    setCalendarVisible(true);
   }, [startDate, endDate]);
 
-  const applyPicker = useCallback(() => {
-    if (!activePicker) return;
-    const value = formatYMDLocal(pickerDate);
-    if (activePicker === 'start') setStartDate(value);
-    else setEndDate(value);
-    setActivePicker(null);
-  }, [activePicker, pickerDate]);
+  const closeCalendar = useCallback(() => {
+    setCalendarVisible(false);
+  }, []);
 
-  const onAndroidChange = useCallback((event: DateTimePickerEvent, date?: Date) => {
-    if ((event as any)?.type === 'dismissed') {
-      setActivePicker(null);
+  const onCalendarDayPress = useCallback((day: DateData) => {
+    const value = day.dateString;
+    if (!draftStart || (draftStart && draftEnd)) {
+      setDraftStart(value);
+      setDraftEnd('');
       return;
     }
-    if (date) {
-      const value = formatYMDLocal(date);
-      if (activePicker === 'start') setStartDate(value);
-      else if (activePicker === 'end') setEndDate(value);
+    if (value < draftStart) {
+      setDraftStart(value);
+      setDraftEnd('');
+      return;
     }
-    setActivePicker(null);
-  }, [activePicker]);
+    setDraftEnd(value);
+  }, [draftStart, draftEnd]);
+
+  const applyCalendar = useCallback(() => {
+    setStartDate(draftStart);
+    setEndDate(draftEnd);
+    setCalendarVisible(false);
+  }, [draftStart, draftEnd]);
+
+  const markedDates = useMemo(() => buildMarkedDates(draftStart, draftEnd), [draftStart, draftEnd]);
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }} scrollEventThrottle={32} removeClippedSubviews={true}>
@@ -300,38 +305,20 @@ export function ReportsScreen() {
 
       <View style={[styles.card, { marginBottom: 12 }]}>
         <Text style={{ fontWeight: '700', marginBottom: 8 }}>Filtro por fechas</Text>
-        {useNativePicker ? (
-          <>
-            <View style={{ marginBottom: 10 }}>
-              <Text style={styles.label}>Desde</Text>
-              <Pressable onPress={() => openPicker('start')} style={styles.input}>
-                <Text style={{ color: startDate ? '#111827' : '#9ca3af' }}>{startDate || 'YYYY-MM-DD'}</Text>
-              </Pressable>
-            </View>
-            <View style={{ marginBottom: 10 }}>
-              <Text style={styles.label}>Hasta</Text>
-              <Pressable onPress={() => openPicker('end')} style={styles.input}>
-                <Text style={{ color: endDate ? '#111827' : '#9ca3af' }}>{endDate || 'YYYY-MM-DD'}</Text>
-              </Pressable>
-            </View>
-          </>
-        ) : isWeb ? (
-          <>
-            <View style={{ marginBottom: 10 }}>
-              <Text style={styles.label}>Desde</Text>
-              <WebDateInput value={startDate} onChange={setStartDate} />
-            </View>
-            <View style={{ marginBottom: 10 }}>
-              <Text style={styles.label}>Hasta</Text>
-              <WebDateInput value={endDate} onChange={setEndDate} />
-            </View>
-          </>
-        ) : (
-          <>
-            <Field label="Desde (YYYY-MM-DD)" value={startDate} onChangeText={setStartDate} placeholder="2025-01-01" />
-            <Field label="Hasta (YYYY-MM-DD)" value={endDate} onChangeText={setEndDate} placeholder="2025-12-31" />
-          </>
-        )}
+        <>
+          <View style={{ marginBottom: 10 }}>
+            <Text style={styles.label}>Desde</Text>
+            <Pressable onPress={openCalendar} style={styles.input}>
+              <Text style={{ color: startDate ? '#111827' : '#9ca3af' }}>{startDate || 'YYYY-MM-DD'}</Text>
+            </Pressable>
+          </View>
+          <View style={{ marginBottom: 10 }}>
+            <Text style={styles.label}>Hasta</Text>
+            <Pressable onPress={openCalendar} style={styles.input}>
+              <Text style={{ color: endDate ? '#111827' : '#9ca3af' }}>{endDate || 'YYYY-MM-DD'}</Text>
+            </Pressable>
+          </View>
+        </>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
           <View style={{ flex: 1 }}>
             <Button title="Últimos 7 días" variant="secondary" onPress={() => setQuickRange(7, setStartDate, setEndDate)} />
@@ -863,26 +850,46 @@ export function ReportsScreen() {
           ListEmptyComponent={<Text style={styles.small}>Sin ventas aún</Text>}
         />
       </View>
-      {useNativePicker && activePicker && Platform.OS === 'android' && (
-        <DateTimePicker value={pickerDate} mode="date" display="default" onChange={onAndroidChange} />
-      )}
-      {useNativePicker && activePicker && Platform.OS === 'ios' && (
+      {calendarVisible && (
         <Modal
           visible={true}
           transparent
           animationType="fade"
-          onRequestClose={() => setActivePicker(null)}
+          onRequestClose={closeCalendar}
         >
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
             <View style={{ backgroundColor: 'white', borderRadius: 12, padding: 16, width: '100%', maxWidth: 420 }}>
-              <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 12 }}>Selecciona fecha</Text>
-              <DateTimePicker value={pickerDate} mode="date" display="spinner" onChange={(_, date) => date && setPickerDate(date)} />
+              <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 6 }}>Seleccionar rango</Text>
+              <Text style={[styles.small, { marginBottom: 10 }]}>Desde: {draftStart || 'YYYY-MM-DD'}  Hasta: {draftEnd || 'YYYY-MM-DD'}</Text>
+              <Calendar
+                current={draftStart || formatYMDLocal(new Date())}
+                maxDate={formatYMDLocal(new Date())}
+                markingType="period"
+                markedDates={markedDates}
+                onDayPress={onCalendarDayPress}
+                firstDay={1}
+                hideExtraDays
+                theme={{
+                  calendarBackground: 'white',
+                  textSectionTitleColor: '#6b7280',
+                  selectedDayBackgroundColor: '#2563eb',
+                  selectedDayTextColor: 'white',
+                  dayTextColor: '#111827',
+                  textDisabledColor: '#d1d5db',
+                  monthTextColor: '#111827',
+                  arrowColor: '#111827',
+                  todayTextColor: '#2563eb',
+                  textDayFontWeight: '500',
+                  textMonthFontWeight: '700',
+                  textDayHeaderFontWeight: '600',
+                }}
+              />
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
                 <View style={{ flex: 1 }}>
-                  <Button title="Aplicar" onPress={applyPicker} />
+                  <Button title="Aplicar" onPress={applyCalendar} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Button title="Cancelar" variant="secondary" onPress={() => setActivePicker(null)} />
+                  <Button title="Cancelar" variant="secondary" onPress={closeCalendar} />
                 </View>
               </View>
             </View>
@@ -952,24 +959,30 @@ function formatYMDLocal(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function WebDateInput({ value, onChange }: { value: string; onChange: (next: string) => void }) {
-  return React.createElement('input', {
-    type: 'date',
-    value,
-    placeholder: 'YYYY-MM-DD',
-    onChange: (e: any) => onChange(e.target.value),
-    style: {
-      width: '100%',
-      borderWidth: 1,
-      borderStyle: 'solid',
-      borderColor: '#d1d5db',
-      borderRadius: 6,
-      padding: '8px 10px',
-      backgroundColor: 'white',
-      color: '#111827',
-      boxSizing: 'border-box',
-    },
-  });
+function buildMarkedDates(start: string, end: string): Record<string, { startingDay?: boolean; endingDay?: boolean; color?: string; textColor?: string }> {
+  const marks: Record<string, { startingDay?: boolean; endingDay?: boolean; color?: string; textColor?: string }> = {};
+  if (!start) return marks;
+  if (!end) {
+    marks[start] = { startingDay: true, endingDay: true, color: '#2563eb', textColor: 'white' };
+    return marks;
+  }
+  const range = start <= end ? { start, end } : { start: end, end: start };
+  let current = parseYMD(range.start);
+  const last = parseYMD(range.end);
+  if (!current || !last) return marks;
+  while (current <= last) {
+    const key = formatYMDLocal(current);
+    const isStart = key === range.start;
+    const isEnd = key === range.end;
+    marks[key] = {
+      startingDay: isStart,
+      endingDay: isEnd,
+      color: isStart || isEnd ? '#2563eb' : '#bfdbfe',
+      textColor: isStart || isEnd ? 'white' : '#111827',
+    };
+    current.setDate(current.getDate() + 1);
+  }
+  return marks;
 }
 
 function buildReportHTML(sales: Sale[], products: Product[], start: string, end: string): string {
