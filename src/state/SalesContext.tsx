@@ -7,7 +7,7 @@ import { sendSaleToSheets, sendDueSaleToSheets, sendDueClearToSheets, fetchSales
 
 type SalesCtx = {
   sales: Sale[];
-  add: (sale: Omit<Sale, 'id' | 'createdAt'>) => void;
+  add: (sale: Omit<Sale, 'id' | 'createdAt'> & { createdAt?: number }) => void;
   remove: (id: string) => void;
   update: (id: string, changes: Partial<Omit<Sale, 'id' | 'createdAt'>>) => void;
   setAll: (items: Sale[]) => void;
@@ -47,7 +47,8 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
         const prod = products.find((p) => p.id === item.productId)!;
         updateProduct(prod.id, { stock: prod.stock - item.quantity });
       }
-      const newSale: Sale = { id: uuid(), createdAt: Date.now(), ...sale } as Sale;
+      const createdAt = typeof sale.createdAt === 'number' ? sale.createdAt : Date.now();
+      const newSale: Sale = { id: uuid(), createdAt, ...sale } as Sale;
       setSales((prev) => [...prev, newSale]);
       // Enviar a Google Sheets (no bloqueante)
       (async () => {
