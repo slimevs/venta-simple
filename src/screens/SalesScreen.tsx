@@ -32,7 +32,6 @@ export function SalesScreen() {
   const [productError, setProductError] = useState<boolean>(false);
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [saleDate, setSaleDate] = useState(() => formatYMDLocal(new Date()));
-  const [draftDate, setDraftDate] = useState(() => formatYMDLocal(new Date()));
 
   const selectedProduct = useMemo(() => products.find((p) => p.id === selectedId), [products, selectedId]);
   const filtered = useMemo(() => {
@@ -121,7 +120,6 @@ export function SalesScreen() {
       setPaymentType('efectivo');
       const todayReset = formatYMDLocal(new Date());
       setSaleDate(todayReset);
-      setDraftDate(todayReset);
       toast.show('Venta guardada', { type: 'success' });
     } catch (e: any) {
       setError(String(e?.message ?? e));
@@ -129,27 +127,23 @@ export function SalesScreen() {
   }, [items, total, department, paymentStatus, paymentType, add, toast, saleDate]);
 
   const openCalendar = useCallback(() => {
-    setDraftDate(saleDate || formatYMDLocal(new Date()));
     setCalendarVisible(true);
-  }, [saleDate]);
+  }, []);
 
   const closeCalendar = useCallback(() => {
     setCalendarVisible(false);
   }, []);
 
   const onCalendarDayPress = useCallback((day: DateData) => {
-    setDraftDate(day.dateString);
-  }, []);
-
-  const applyCalendar = useCallback(() => {
+    const value = day.dateString;
     const today = formatYMDLocal(new Date());
-    if (draftDate > today) {
+    if (value > today) {
       Alert.alert('Fecha invalida', 'No se permiten fechas futuras.');
       return;
     }
-    setSaleDate(draftDate);
+    setSaleDate(value);
     setCalendarVisible(false);
-  }, [draftDate]);
+  }, []);
 
   return (
     <View style={{ flex: 1 }}>
@@ -269,10 +263,10 @@ export function SalesScreen() {
         {error && <Text style={{ color: '#b91c1c', marginBottom: 8 }}>{error}</Text>}
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Button title="Agregar a la venta" onPress={addItem} />
+            <Button title="Agregar a la venta" onPress={addItem} iconName="add-circle-outline" />
           </View>
           <View style={{ flex: 1 }}>
-            <Button title="Nuevo producto" variant="secondary" onPress={() => navigation.navigate('Productos')} />
+            <Button title="Nuevo producto" variant="secondary" onPress={() => navigation.navigate('Productos')} iconName="add" />
           </View>
         </View>
       </View>
@@ -289,7 +283,7 @@ export function SalesScreen() {
                 <Text>{p?.name} x {item.quantity}{p?.unit === 'kg' ? ' kg' : ''}</Text>
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                   <Text>{formatCLP(item.subtotal)}</Text>
-                  <Button title="Quitar" variant="danger" onPress={() => removeItem(item.productId)} />
+                  <Button title="Quitar" variant="danger" onPress={() => removeItem(item.productId)} iconName="trash-outline" />
                 </View>
               </View>
             );
@@ -307,13 +301,14 @@ export function SalesScreen() {
 
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <View style={{ flex: 1 }}>
-          <Button title="Guardar venta" onPress={saveSale} disabled={items.length === 0} />
+          <Button title="Guardar venta" onPress={saveSale} disabled={items.length === 0} iconName="save-outline" />
         </View>
         <View style={{ flex: 1 }}>
           <Button
             title="Ver deudas"
             variant="secondary"
             onPress={() => navigation.navigate('Por Cobrar')}
+            iconName="alert-circle-outline"
           />
         </View>
       </View>
@@ -329,8 +324,10 @@ export function SalesScreen() {
         )}
         {pendingSales.length > 0 && (
           <Button
-            title="Ir a Por Cobrar →"
+            title="Ir a Por Cobrar"
             onPress={() => navigation.navigate('Por Cobrar')}
+            iconName="arrow-forward-outline"
+            iconPosition="right"
           />
         )}
       </View>
@@ -346,11 +343,11 @@ export function SalesScreen() {
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
             <View style={{ backgroundColor: 'white', borderRadius: 12, padding: 16, width: '100%', maxWidth: 420 }}>
               <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 6 }}>Seleccionar fecha</Text>
-              <Text style={[styles.small, { marginBottom: 10 }]}>Fecha: {draftDate || 'YYYY-MM-DD'}</Text>
+              <Text style={[styles.small, { marginBottom: 10 }]}>Fecha: {saleDate || 'YYYY-MM-DD'}</Text>
               <Calendar
-                current={draftDate || formatYMDLocal(new Date())}
+                current={saleDate || formatYMDLocal(new Date())}
                 maxDate={formatYMDLocal(new Date())}
-                markedDates={draftDate ? { [draftDate]: { selected: true, selectedColor: '#2563eb', selectedTextColor: 'white' } } : undefined}
+                markedDates={saleDate ? { [saleDate]: { selected: true, selectedColor: '#2563eb', selectedTextColor: 'white' } } : undefined}
                 onDayPress={onCalendarDayPress}
                 firstDay={1}
                 hideExtraDays
@@ -369,13 +366,8 @@ export function SalesScreen() {
                   textDayHeaderFontWeight: '600',
                 }}
               />
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
-                <View style={{ flex: 1 }}>
-                  <Button title="Aplicar" onPress={applyCalendar} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Button title="Cancelar" variant="secondary" onPress={closeCalendar} />
-                </View>
+              <View style={{ marginTop: 16 }}>
+                <Button title="Cancelar" variant="secondary" onPress={closeCalendar} iconName="close-circle-outline" />
               </View>
             </View>
           </View>

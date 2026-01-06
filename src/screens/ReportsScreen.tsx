@@ -23,8 +23,7 @@ export function ReportsScreen() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [calendarVisible, setCalendarVisible] = useState(false);
-  const [draftStart, setDraftStart] = useState('');
-  const [draftEnd, setDraftEnd] = useState('');
+  const [activePicker, setActivePicker] = useState<'start' | 'end' | null>(null);
   const [statusFilter, setStatusFilter] = useState<'todos' | 'pagado' | 'pendiente'>('todos');
   const [typeFilter, setTypeFilter] = useState<'todos' | 'efectivo' | 'transferencia'>('todos');
   const [departmentFilter, setDepartmentFilter] = useState<string>('todos');
@@ -247,38 +246,34 @@ export function ReportsScreen() {
     if (departmentPage > departmentTotalPages) setDepartmentPage(departmentTotalPages);
   }, [departmentPage, departmentTotalPages]);
 
-  const openCalendar = useCallback(() => {
-    setDraftStart(startDate);
-    setDraftEnd(endDate);
+  const openCalendar = useCallback((which: 'start' | 'end') => {
+    setActivePicker(which);
     setCalendarVisible(true);
-  }, [startDate, endDate]);
+  }, []);
 
   const closeCalendar = useCallback(() => {
     setCalendarVisible(false);
+    setActivePicker(null);
   }, []);
 
   const onCalendarDayPress = useCallback((day: DateData) => {
     const value = day.dateString;
-    if (!draftStart || (draftStart && draftEnd)) {
-      setDraftStart(value);
-      setDraftEnd('');
-      return;
+    if (activePicker === 'end') {
+      if (startDate && value < startDate) {
+        setEndDate(startDate);
+        setStartDate(value);
+      } else {
+        setEndDate(value);
+      }
+    } else {
+      setStartDate(value);
+      if (endDate && endDate < value) setEndDate('');
     }
-    if (value < draftStart) {
-      setDraftStart(value);
-      setDraftEnd('');
-      return;
-    }
-    setDraftEnd(value);
-  }, [draftStart, draftEnd]);
-
-  const applyCalendar = useCallback(() => {
-    setStartDate(draftStart);
-    setEndDate(draftEnd);
     setCalendarVisible(false);
-  }, [draftStart, draftEnd]);
+    setActivePicker(null);
+  }, [activePicker, startDate, endDate]);
 
-  const markedDates = useMemo(() => buildMarkedDates(draftStart, draftEnd), [draftStart, draftEnd]);
+  const markedDates = useMemo(() => buildMarkedDates(startDate, endDate), [startDate, endDate]);
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }} scrollEventThrottle={32} removeClippedSubviews={true}>
@@ -287,6 +282,7 @@ export function ReportsScreen() {
         <Button
           title="Sincronizar ventas"
           variant="secondary"
+          iconName="sync-outline"
           onPress={async () => {
             try {
               const remote = await fetchSalesFromSheets();
@@ -308,26 +304,26 @@ export function ReportsScreen() {
         <>
           <View style={{ marginBottom: 10 }}>
             <Text style={styles.label}>Desde</Text>
-            <Pressable onPress={openCalendar} style={styles.input}>
+            <Pressable onPress={() => openCalendar('start')} style={styles.input}>
               <Text style={{ color: startDate ? '#111827' : '#9ca3af' }}>{startDate || 'YYYY-MM-DD'}</Text>
             </Pressable>
           </View>
           <View style={{ marginBottom: 10 }}>
             <Text style={styles.label}>Hasta</Text>
-            <Pressable onPress={openCalendar} style={styles.input}>
+            <Pressable onPress={() => openCalendar('end')} style={styles.input}>
               <Text style={{ color: endDate ? '#111827' : '#9ca3af' }}>{endDate || 'YYYY-MM-DD'}</Text>
             </Pressable>
           </View>
         </>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
           <View style={{ flex: 1 }}>
-            <Button title="Últimos 7 días" variant="secondary" onPress={() => setQuickRange(7, setStartDate, setEndDate)} />
+            <Button title="Últimos 7 días" variant="secondary" onPress={() => setQuickRange(7, setStartDate, setEndDate)} iconName="time-outline" />
           </View>
           <View style={{ flex: 1 }}>
-            <Button title="Últimos 30 días" variant="secondary" onPress={() => setQuickRange(30, setStartDate, setEndDate)} />
+            <Button title="Últimos 30 días" variant="secondary" onPress={() => setQuickRange(30, setStartDate, setEndDate)} iconName="calendar-outline" />
           </View>
           <View style={{ flex: 1 }}>
-            <Button title="Limpiar" variant="secondary" onPress={() => { setStartDate(''); setEndDate(''); }} />
+            <Button title="Limpiar" variant="secondary" onPress={() => { setStartDate(''); setEndDate(''); }} iconName="close-circle-outline" />
           </View>
         </View>
       </View>
@@ -393,7 +389,7 @@ export function ReportsScreen() {
               />
             </View>
             <View style={{ width: 140 }}>
-              <Button title={deptDropdown ? 'Cerrar' : 'Seleccionar'} variant="secondary" onPress={() => setDeptDropdown((v) => !v)} />
+              <Button title={deptDropdown ? 'Cerrar' : 'Seleccionar'} variant="secondary" onPress={() => setDeptDropdown((v) => !v)} iconName={deptDropdown ? 'chevron-up-outline' : 'chevron-down-outline'} />
             </View>
           </View>
           {deptDropdown && (
@@ -438,7 +434,7 @@ export function ReportsScreen() {
               } catch (e: any) {
                 Alert.alert('Error al exportar CSV', String(e?.message ?? e));
               }
-            }} />
+            }} iconName="download-outline" />
           </View>
           <View style={{ flex: 1 }}>
             <Button title="Exportar PDF (Resumen)" variant="secondary" onPress={async () => {
@@ -463,7 +459,7 @@ export function ReportsScreen() {
               } catch (e: any) {
                 Alert.alert('Error al exportar PDF', String(e?.message ?? e));
               }
-            }} />
+            }} iconName="document-text-outline" />
           </View>
         </View>
         <FlatList
@@ -499,8 +495,8 @@ export function ReportsScreen() {
           <View style={[styles.row, { marginTop: 8 }]}>
             <Text style={styles.small}>Pagina {productPayPage} de {productPayTotalPages}</Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Button title="Anterior" variant="secondary" onPress={() => setProductPayPage((p) => Math.max(1, p - 1))} disabled={productPayPage <= 1} />
-              <Button title="Siguiente" variant="secondary" onPress={() => setProductPayPage((p) => Math.min(productPayTotalPages, p + 1))} disabled={productPayPage >= productPayTotalPages} />
+              <Button title="Anterior" variant="secondary" onPress={() => setProductPayPage((p) => Math.max(1, p - 1))} disabled={productPayPage <= 1} iconName="chevron-back-outline" />
+              <Button title="Siguiente" variant="secondary" onPress={() => setProductPayPage((p) => Math.min(productPayTotalPages, p + 1))} disabled={productPayPage >= productPayTotalPages} iconName="chevron-forward-outline" />
             </View>
           </View>
         )}
@@ -529,7 +525,7 @@ export function ReportsScreen() {
               } catch (e: any) {
                 Alert.alert('Error al exportar CSV', String(e?.message ?? e));
               }
-            }} />
+            }} iconName="download-outline" />
           </View>
           <View style={{ flex: 1 }}>
             <Button title="Exportar PDF (Depto)" variant="secondary" onPress={async () => {
@@ -554,7 +550,7 @@ export function ReportsScreen() {
               } catch (e: any) {
                 Alert.alert('Error al exportar PDF', String(e?.message ?? e));
               }
-            }} />
+            }} iconName="document-text-outline" />
           </View>
         </View>
         <FlatList
@@ -584,8 +580,8 @@ export function ReportsScreen() {
           <View style={[styles.row, { marginTop: 8 }]}>
             <Text style={styles.small}>Pagina {departmentPage} de {departmentTotalPages}</Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Button title="Anterior" variant="secondary" onPress={() => setDepartmentPage((p) => Math.max(1, p - 1))} disabled={departmentPage <= 1} />
-              <Button title="Siguiente" variant="secondary" onPress={() => setDepartmentPage((p) => Math.min(departmentTotalPages, p + 1))} disabled={departmentPage >= departmentTotalPages} />
+              <Button title="Anterior" variant="secondary" onPress={() => setDepartmentPage((p) => Math.max(1, p - 1))} disabled={departmentPage <= 1} iconName="chevron-back-outline" />
+              <Button title="Siguiente" variant="secondary" onPress={() => setDepartmentPage((p) => Math.min(departmentTotalPages, p + 1))} disabled={departmentPage >= departmentTotalPages} iconName="chevron-forward-outline" />
             </View>
           </View>
         )}
@@ -606,7 +602,7 @@ export function ReportsScreen() {
                 />
               </View>
               <View style={{ width: 140 }}>
-                <Button title={selectedProduct ? 'Cambiar' : 'Seleccionar'} variant="secondary" onPress={() => setProdDropdown((v) => !v)} />
+                <Button title={selectedProduct ? 'Cambiar' : 'Seleccionar'} variant="secondary" onPress={() => setProdDropdown((v) => !v)} iconName={prodDropdown ? 'chevron-up-outline' : 'chevron-down-outline'} />
               </View>
             </View>
             {prodDropdown && (
@@ -656,7 +652,7 @@ export function ReportsScreen() {
                   } catch (e: any) {
                     Alert.alert('Error al exportar CSV', String(e?.message ?? e));
                   }
-                }} />
+                }} iconName="download-outline" />
               </View>
               <View style={{ flex: 1 }}>
                 <Button title="Exportar PDF (Producto)" variant="secondary" onPress={async () => {
@@ -681,7 +677,7 @@ export function ReportsScreen() {
                   } catch (e: any) {
                     Alert.alert('Error al exportar PDF', String(e?.message ?? e));
                   }
-                }} />
+                }} iconName="document-text-outline" />
               </View>
             </View>
             <FlatList
@@ -738,7 +734,7 @@ export function ReportsScreen() {
             } catch (e: any) {
               Alert.alert('Error al exportar', String(e?.message ?? e));
             }
-          }} />
+          }} iconName="download-outline" />
           <View style={{ height: 8 }} />
           <Button title="Exportar PDF" onPress={async () => {
             try {
@@ -764,7 +760,7 @@ export function ReportsScreen() {
             } catch (e: any) {
               Alert.alert('Error al exportar PDF', String(e?.message ?? e));
             }
-          }} />
+          }} iconName="document-text-outline" />
         </View>
       </View>
 
@@ -815,7 +811,7 @@ export function ReportsScreen() {
             } catch (e: any) {
               Alert.alert('Error al exportar pendientes', String(e?.message ?? e));
             }
-          }} />
+          }} iconName="download-outline" />
         </View>
         <FlatList
           style={{ marginTop: 8 }}
@@ -860,9 +856,9 @@ export function ReportsScreen() {
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
             <View style={{ backgroundColor: 'white', borderRadius: 12, padding: 16, width: '100%', maxWidth: 420 }}>
               <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 6 }}>Seleccionar rango</Text>
-              <Text style={[styles.small, { marginBottom: 10 }]}>Desde: {draftStart || 'YYYY-MM-DD'}  Hasta: {draftEnd || 'YYYY-MM-DD'}</Text>
+              <Text style={[styles.small, { marginBottom: 10 }]}>Desde: {startDate || 'YYYY-MM-DD'}  Hasta: {endDate || 'YYYY-MM-DD'}</Text>
               <Calendar
-                current={draftStart || formatYMDLocal(new Date())}
+                current={(activePicker === 'end' ? endDate : startDate) || formatYMDLocal(new Date())}
                 maxDate={formatYMDLocal(new Date())}
                 markingType="period"
                 markedDates={markedDates}
@@ -884,13 +880,8 @@ export function ReportsScreen() {
                   textDayHeaderFontWeight: '600',
                 }}
               />
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
-                <View style={{ flex: 1 }}>
-                  <Button title="Aplicar" onPress={applyCalendar} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Button title="Cancelar" variant="secondary" onPress={closeCalendar} />
-                </View>
+              <View style={{ marginTop: 16 }}>
+                <Button title="Cancelar" variant="secondary" onPress={closeCalendar} iconName="close-circle-outline" />
               </View>
             </View>
           </View>
